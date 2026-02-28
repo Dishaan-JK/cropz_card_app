@@ -1,0 +1,30 @@
+name: cropz_app
+description: "Cropz mobile app"
+publish_to: 'none'
+version: 0.1.0
+
+environment:
+  sdk: ^3.10.8
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_riverpod: ^3.0.3
+  sqflite: ^2.4.2
+  path: ^1.9.1
+  file_picker: ^10.3.2
+  path_provider: ^2.1.5
+  pdf: ^3.11.3
+  share_plus: ^12.0.1
+  google_fonts: ^8.0.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/data/pincode_lookup.json
+    - assets/data/company_suggestions.json
