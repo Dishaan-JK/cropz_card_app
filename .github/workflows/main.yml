@@ -10,8 +10,7 @@ jobs:
     # This tells EVERY step to start inside your flutter folder
     defaults:
       run:
-        working-directory: cropz_card_app/app/cropz_app
-
+        working-directory: app/cropz_app
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
