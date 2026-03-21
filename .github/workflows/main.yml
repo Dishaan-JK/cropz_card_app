@@ -1,0 +1,54 @@
+name: Flutter CI/CD to Google Drive
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checkout the code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2. Set up Java (Required for Android builds)
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      # 3. Set up Flutter
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      # 4. Install dependencies
+      - name: Install dependencies
+        run: flutter pub get
+
+      # 5. Check environment (Flutter Doctor)
+      - name: Flutter Doctor
+        run: flutter doctor
+
+      # 6. Static Analysis
+      - name: Flutter Analyze
+        run: flutter analyze
+
+      # 7. Build the APK
+      - name: Build APK
+        run: flutter build apk --release
+
+      # 8. Upload to Google Drive
+      - name: Upload APK to Google Drive
+        uses: adityak74/google-drive-upload-git-action@main
+        with:
+          credentials: ${{ secrets.GDRIVE_CREDENTIALS_DATA }}
+          filename: build/app/outputs/flutter-apk/app-release.apk
+          folderId: ${{ secrets.GDRIVE_FOLDER_ID }}
+          overwrite: "false"
