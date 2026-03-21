@@ -7,10 +7,17 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # This tells EVERY step to start inside your flutter folder
+    defaults:
+      run:
+        working-directory: cropz_card_app/app/cropz_app
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          # This is critical: tells checkout not to move the folder
+          path: '.' 
 
       - name: Set up JDK 17
         uses: actions/setup-java@v3
@@ -23,37 +30,29 @@ jobs:
         with:
           channel: 'stable'
 
-      # 1. Install dependencies (Crucial: working-directory is here)
       - name: Install dependencies
         run: flutter pub get
-        working-directory: app/cropz_app
 
       - name: Flutter Doctor
         run: flutter doctor
-        working-directory: app/cropz_app
 
       - name: Flutter Analyze
         run: flutter analyze
-        working-directory: app/cropz_app
 
-      # 2. Extract Version (Pointing to the subfolder path)
       - name: Get Version from pubspec
         id: pubspec
         run: |
-          VERSION=$(grep 'version: ' app/cropz_app/pubspec.yaml | sed 's/version: //')
+          VERSION=$(grep 'version: ' pubspec.yaml | sed 's/version: //')
           echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
 
-      # 3. Build the APK
       - name: Build APK
         run: flutter build apk --release
-        working-directory: app/cropz_app
 
-      # 4. Upload to Google Drive
       - name: Upload APK to Google Drive
         uses: adityak74/google-drive-upload-git-action@main
         with:
           credentials: ${{ secrets.GDRIVE_CREDENTIALS_DATA }}
-          # The uploader needs the path from the VERY START of the repo
+          # Note: We go UP two levels (../..) to get back to the root for the uploader
           filename: app/cropz_app/build/app/outputs/flutter-apk/app-release.apk
           name: app-v${{ env.APP_VERSION }}-b${{ github.run_number }}.apk
           folderId: ${{ secrets.GDRIVE_FOLDER_ID }}
