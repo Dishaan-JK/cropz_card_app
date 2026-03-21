@@ -7,51 +7,45 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    # This tells EVERY step to start inside your flutter folder
-    defaults:
-      run:
-        working-directory: app/cropz_app
+
     steps:
+      # 1. Standard Checkout (Don't use 'path' or 'defaults' here)
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          # This is critical: tells checkout not to move the folder
-          path: '.' 
 
+      # 2. Set up Java
       - name: Set up JDK 17
         uses: actions/setup-java@v3
         with:
           java-version: '17'
           distribution: 'temurin'
 
+      # 3. Set up Flutter
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
 
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Flutter Doctor
-        run: flutter doctor
-
-      - name: Flutter Analyze
-        run: flutter analyze
-
-      - name: Get Version from pubspec
-        id: pubspec
+      # 4. Run Flutter commands by "CD-ing" into the folder first
+      - name: Install & Analyze
         run: |
-          VERSION=$(grep 'version: ' pubspec.yaml | sed 's/version: //')
+          cd app/cropz_app
+          flutter pub get
+          flutter doctor
+          flutter analyze
+          flutter build apk --release
+
+      # 5. Extract Version (Explicit path)
+      - name: Get Version from pubspec
+        run: |
+          VERSION=$(grep 'version: ' app/cropz_app/pubspec.yaml | sed 's/version: //')
           echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
 
-      - name: Build APK
-        run: flutter build apk --release
-
+      # 6. Upload to Google Drive (Full path from root)
       - name: Upload APK to Google Drive
         uses: adityak74/google-drive-upload-git-action@main
         with:
           credentials: ${{ secrets.GDRIVE_CREDENTIALS_DATA }}
-          # Note: We go UP two levels (../..) to get back to the root for the uploader
           filename: app/cropz_app/build/app/outputs/flutter-apk/app-release.apk
           name: app-v${{ env.APP_VERSION }}-b${{ github.run_number }}.apk
           folderId: ${{ secrets.GDRIVE_FOLDER_ID }}
