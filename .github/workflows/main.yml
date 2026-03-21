@@ -23,31 +23,37 @@ jobs:
         with:
           channel: 'stable'
 
-      # We tell Flutter exactly where the pubspec.yaml is
+      # 1. Install dependencies (Crucial: working-directory is here)
       - name: Install dependencies
         run: flutter pub get
+        working-directory: app/cropz_app
+
+      - name: Flutter Doctor
+        run: flutter doctor
         working-directory: app/cropz_app
 
       - name: Flutter Analyze
         run: flutter analyze
         working-directory: app/cropz_app
 
-      # We extract the version from the correct subfolder
+      # 2. Extract Version (Pointing to the subfolder path)
       - name: Get Version from pubspec
         id: pubspec
         run: |
           VERSION=$(grep 'version: ' app/cropz_app/pubspec.yaml | sed 's/version: //')
           echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
 
+      # 3. Build the APK
       - name: Build APK
         run: flutter build apk --release
         working-directory: app/cropz_app
 
-      # The 'filename' path must be relative to the REPOSITORY ROOT
+      # 4. Upload to Google Drive
       - name: Upload APK to Google Drive
         uses: adityak74/google-drive-upload-git-action@main
         with:
           credentials: ${{ secrets.GDRIVE_CREDENTIALS_DATA }}
+          # The uploader needs the path from the VERY START of the repo
           filename: app/cropz_app/build/app/outputs/flutter-apk/app-release.apk
           name: app-v${{ env.APP_VERSION }}-b${{ github.run_number }}.apk
           folderId: ${{ secrets.GDRIVE_FOLDER_ID }}
