@@ -29,12 +29,17 @@ jobs:
       # 4. Run Flutter commands by "CD-ing" into the folder first
       - name: Install & Analyze
         run: |
-          cd app/cropz_app
+          echo "Step 1: Where am I?"
+          pwd
+          echo "Step 2: What is in this folder?"
+          ls -R
+          echo "Step 3: Attempting to enter the folder..."
+          cd app/cropz_app || { echo "FOLDER NOT FOUND"; exit 1; }
+          echo "Step 4: Running Flutter..."
           flutter pub get
           flutter doctor
           flutter analyze
           flutter build apk --release
-
       # 5. Extract Version (Explicit path)
       - name: Get Version from pubspec
         run: |
