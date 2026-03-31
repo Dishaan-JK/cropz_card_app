@@ -54,6 +54,26 @@
 - Address type support (office/godown/shop via free text field).
 - Single transactional save from form for all related data.
 
+## UI instructions
+	When generating Flutter UI code, strictly adhere to a premium "Soft-UI / Claude" aesthetic by bypassing aggressive Material defaults:
+	
+	1. Typography & Hierarchy:
+	   - Default to clean, modern sans-serif fonts (like Inter or Geist).
+	   - Use strict neutral palettes. Avoid pure black. Use colors like Color(0xFF18181B) for primary text and Color(0xFF71717A) for secondary text.
+	
+	2. Cards & Containers (Bento Grid style):
+	   - Never use the default Material 'Card' widget. Build cards manually using Container.
+	   - Force a rounded profile using 'BorderRadius.circular(16)' or 24.
+	   - Use extremely soft shadows: 'BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: Offset(0, 4))'.
+	   - Use a very thin, subtle border: 'Border.all(color: Color(0xFFE4E4E7))'.
+	
+	3. Spacing & Padding:
+	   - Use generous negative space. Default to gaps of 16, 24, or 32 between main sections to let elements breathe.
+	
+	4. Micro-Interactions:
+	   - Never let UI elements just "snap" into view. Wrap dynamic components in 'AnimatedContainer', 'AnimatedOpacity', or 'AnimatedSwitcher'.
+	   - Use 'Curves.easeInOutCubic' for premium-feeling transitions.
+	
 ## Data Model Alignment Work
 - Mapped fields from `data_model.md` into entity/model structure.
 - Updated model mapping to support data-model naming variants.
