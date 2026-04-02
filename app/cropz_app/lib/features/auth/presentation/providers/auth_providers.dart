@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-enum AuthStep { unauthenticated, authenticated }
+enum AuthStep { unauthenticated, loading, authenticated }
 
 class AuthState {
   const AuthState({
@@ -68,7 +68,7 @@ class AuthController extends Notifier<AuthState> {
     ].where((value) => value.isNotEmpty).join(' ');
 
     state = state.copyWith(
-      step: AuthStep.authenticated,
+      step: AuthStep.loading,
       accessToken: accessToken,
       jwtToken: jwtToken,
       phoneNumber: phoneNumber,
@@ -76,6 +76,13 @@ class AuthController extends Notifier<AuthState> {
       isSubmitting: false,
       clearError: true,
     );
+
+    Future<void>.delayed(const Duration(milliseconds: 650), () {
+      if (state.step != AuthStep.loading || state.jwtToken != jwtToken) {
+        return;
+      }
+      state = state.copyWith(step: AuthStep.authenticated);
+    });
   }
 
   void setError(String message) {

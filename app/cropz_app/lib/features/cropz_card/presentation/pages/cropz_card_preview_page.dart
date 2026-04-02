@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -9,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../domain/entities/cropz_card_details.dart';
 
@@ -20,20 +20,14 @@ class PdfField {
 }
 
 class BankPreview {
-  const BankPreview({
-    required this.title,
-    required this.fields,
-  });
+  const BankPreview({required this.title, required this.fields});
 
   final String title;
   final List<PdfField> fields;
 }
 
 class AddressPreview {
-  const AddressPreview({
-    required this.title,
-    required this.lines,
-  });
+  const AddressPreview({required this.title, required this.lines});
 
   final String title;
   final List<String> lines;
@@ -102,28 +96,31 @@ class CropzCardPreviewData {
               ],
             ),
           )
-          .where((account) => account.fields.any((field) => field.value.isNotEmpty))
+          .where(
+            (account) => account.fields.any((field) => field.value.isNotEmpty),
+          )
           .toList(),
       addresses: details.addresses
           .asMap()
           .entries
           .map((entry) {
             final type = (entry.value.addressType ?? '').trim();
-            final lines = <String?>[
-              entry.value.address1,
-              entry.value.address2,
-              entry.value.address3,
-              entry.value.city,
-              entry.value.taluk,
-              entry.value.block,
-              entry.value.district,
-              entry.value.state,
-              entry.value.pincode,
-            ]
-                .whereType<String>()
-                .map((value) => value.trim())
-                .where((v) => v.isNotEmpty)
-                .toList();
+            final lines =
+                <String?>[
+                      entry.value.address1,
+                      entry.value.address2,
+                      entry.value.address3,
+                      entry.value.city,
+                      entry.value.taluk,
+                      entry.value.block,
+                      entry.value.district,
+                      entry.value.state,
+                      entry.value.pincode,
+                    ]
+                    .whereType<String>()
+                    .map((value) => value.trim())
+                    .where((v) => v.isNotEmpty)
+                    .toList();
             final title = type.isEmpty
                 ? 'Address ${entry.key + 1}'
                 : '${type[0].toUpperCase()}${type.substring(1)} Address';
@@ -145,17 +142,13 @@ class CropzCardPreviewData {
 }
 
 class CropzCardPreviewPage extends StatefulWidget {
-  const CropzCardPreviewPage({
-    super.key,
-    required this.data,
-  });
+  const CropzCardPreviewPage({super.key, required this.data});
 
   final CropzCardPreviewData data;
 
   static Future<void> sharePdf(
     BuildContext context,
-    CropzCardPreviewData data,
-    {
+    CropzCardPreviewData data, {
     required bool includeBusiness,
     required bool includeLicenseInfo,
     required bool includeBankAccounts,
@@ -169,7 +162,9 @@ class CropzCardPreviewPage extends StatefulWidget {
           !(includeBankAccounts && selectedBankIndexes.isNotEmpty) &&
           !(includeAddress && selectedAddressIndexes.isNotEmpty)) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Select at least one section to share.')),
+          const SnackBar(
+            content: Text('Select at least one section to share.'),
+          ),
         );
         return;
       }
@@ -277,7 +272,9 @@ class CropzCardPreviewPage extends StatefulWidget {
       );
     } catch (_) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to generate PDF. Please try again.')),
+        const SnackBar(
+          content: Text('Unable to generate PDF. Please try again.'),
+        ),
       );
     }
   }
@@ -348,7 +345,8 @@ class _CropzCardPreviewPageState extends State<CropzCardPreviewPage> {
   }
 
   String get _whatsApp => _fieldValue(widget.data.essentialFields, 'WhatsApp');
-  String get _gstNumber => _fieldValue(widget.data.businessFields, 'GST Number');
+  String get _gstNumber =>
+      _fieldValue(widget.data.businessFields, 'GST Number');
 
   String get _primaryAddress {
     if (widget.data.addresses.isEmpty) {
@@ -361,6 +359,39 @@ class _CropzCardPreviewPageState extends State<CropzCardPreviewPage> {
         ? selected
         : 0;
     return widget.data.addresses[safeIndex].lines.join(', ');
+  }
+
+  Future<void> _openAddressInMaps(String addressText) async {
+    final query = addressText.trim();
+    if (query.isEmpty) {
+      return;
+    }
+
+    final encoded = Uri.encodeComponent(query);
+    final appUri = Uri.parse('comgooglemaps://?q=$encoded');
+    final webUri = Uri.parse(
+      'https://www.google.com/maps/search/?api=1&query=$encoded',
+    );
+
+    final openedInApp = await launchUrl(
+      appUri,
+      mode: LaunchMode.externalApplication,
+    );
+
+    if (openedInApp) {
+      return;
+    }
+
+    final openedInWeb = await launchUrl(
+      webUri,
+      mode: LaunchMode.externalApplication,
+    );
+
+    if (!openedInWeb && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to open address in Google Maps.')),
+      );
+    }
   }
 
   Widget _buildSelectedBusinessCard() {
@@ -395,8 +426,9 @@ class _CropzCardPreviewPageState extends State<CropzCardPreviewPage> {
     setState(() => _isSharingBusinessCard = true);
     try {
       await Future<void>.delayed(const Duration(milliseconds: 80));
-      final boundary = _businessCardKey.currentContext?.findRenderObject()
-          as RenderRepaintBoundary?;
+      final boundary =
+          _businessCardKey.currentContext?.findRenderObject()
+              as RenderRepaintBoundary?;
       if (boundary == null) {
         return;
       }
@@ -428,7 +460,9 @@ class _CropzCardPreviewPageState extends State<CropzCardPreviewPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Unable to share business card image. Please try again.'),
+            content: Text(
+              'Unable to share business card image. Please try again.',
+            ),
           ),
         );
       }
@@ -470,10 +504,7 @@ class _CropzCardPreviewPageState extends State<CropzCardPreviewPage> {
               ),
             ),
             const SizedBox(height: 16),
-            Text(
-              'Digital Business Card',
-              style: titleStyle,
-            ),
+            Text('Digital Business Card', style: titleStyle),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -495,7 +526,9 @@ class _CropzCardPreviewPageState extends State<CropzCardPreviewPage> {
             ),
             const SizedBox(height: 12),
             FilledButton.icon(
-              onPressed: _isSharingBusinessCard ? null : _shareBusinessCardImage,
+              onPressed: _isSharingBusinessCard
+                  ? null
+                  : _shareBusinessCardImage,
               icon: const Icon(Icons.image_outlined),
               label: Text(
                 _isSharingBusinessCard
@@ -583,6 +616,7 @@ class _CropzCardPreviewPageState extends State<CropzCardPreviewPage> {
               titleStyle: titleStyle,
               addresses: widget.data.addresses,
               selectedIndexes: _selectedAddressIndexes,
+              onOpenMap: _openAddressInMaps,
               onToggle: (index, checked) {
                 setState(() {
                   if (checked) {
@@ -597,15 +631,15 @@ class _CropzCardPreviewPageState extends State<CropzCardPreviewPage> {
             FilledButton.icon(
               onPressed: _hasSelection
                   ? () => CropzCardPreviewPage.sharePdf(
-                        context,
-                        widget.data,
-                        includeBusiness: _includeBusiness,
-                        includeLicenseInfo: _includeLicenseInfo,
-                        includeBankAccounts: _includeBankAccounts,
-                        includeAddress: _includeAddress,
-                        selectedBankIndexes: _selectedBankIndexes,
-                        selectedAddressIndexes: _selectedAddressIndexes,
-                      )
+                      context,
+                      widget.data,
+                      includeBusiness: _includeBusiness,
+                      includeLicenseInfo: _includeLicenseInfo,
+                      includeBankAccounts: _includeBankAccounts,
+                      includeAddress: _includeAddress,
+                      selectedBankIndexes: _selectedBankIndexes,
+                      selectedAddressIndexes: _selectedAddressIndexes,
+                    )
                   : null,
               icon: const Icon(Icons.share_outlined),
               label: const Text('Share PDF'),
@@ -632,8 +666,9 @@ class _PreviewHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final imageFile =
-        imagePath != null && imagePath!.isNotEmpty ? File(imagePath!) : null;
+    final imageFile = imagePath != null && imagePath!.isNotEmpty
+        ? File(imagePath!)
+        : null;
     final hasImage = imageFile != null && imageFile.existsSync();
 
     return Row(
@@ -659,23 +694,15 @@ class _PreviewHeader extends StatelessWidget {
             children: [
               Text(
                 firmName.isEmpty ? 'Cropz Card' : firmName,
-                style:
-                    const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               if (mobile.isNotEmpty)
-                Text(
-                  mobile,
-                  style: TextStyle(
-                    color: Colors.grey.shade700,
-                  ),
-                ),
+                Text(mobile, style: TextStyle(color: Colors.grey.shade700)),
               if (ownerName.isNotEmpty)
-                Text(
-                  ownerName,
-                  style: TextStyle(
-                    color: Colors.grey.shade700,
-                  ),
-                ),
+                Text(ownerName, style: TextStyle(color: Colors.grey.shade700)),
             ],
           ),
         ),
@@ -807,16 +834,24 @@ class _BusinessCardTemplate2 extends StatelessWidget {
                   ),
                 ),
               ),
-              _BusinessCardLogo(imagePath: data.imagePath, firmName: data.firmName),
+              _BusinessCardLogo(
+                imagePath: data.imagePath,
+                firmName: data.firmName,
+              ),
             ],
           ),
           const SizedBox(height: 12),
           _templateBadge('Owner', data.ownerName),
           _templateBadge('Mobile', data.mobile),
-          _templateBadge('WhatsApp', data.whatsapp.isEmpty ? '-' : data.whatsapp),
+          _templateBadge(
+            'WhatsApp',
+            data.whatsapp.isEmpty ? '-' : data.whatsapp,
+          ),
           _templateBadge('GST', data.gstNumber.isEmpty ? '-' : data.gstNumber),
-          _templateBadge('Dealerships',
-              data.dealerships.isEmpty ? '-' : data.dealerships.join(', ')),
+          _templateBadge(
+            'Dealerships',
+            data.dealerships.isEmpty ? '-' : data.dealerships.join(', '),
+          ),
           const SizedBox(height: 10),
           Text(
             data.address.isEmpty ? '-' : data.address,
@@ -860,7 +895,10 @@ class _BusinessCardTemplate3 extends StatelessWidget {
         children: [
           Row(
             children: [
-              _BusinessCardLogo(imagePath: data.imagePath, firmName: data.firmName),
+              _BusinessCardLogo(
+                imagePath: data.imagePath,
+                firmName: data.firmName,
+              ),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
@@ -900,12 +938,19 @@ class _BusinessCardTemplate3 extends StatelessWidget {
           const SizedBox(height: 8),
           Row(
             children: [
-              Expanded(child: _miniTile('GST', data.gstNumber.isEmpty ? '-' : data.gstNumber)),
+              Expanded(
+                child: _miniTile(
+                  'GST',
+                  data.gstNumber.isEmpty ? '-' : data.gstNumber,
+                ),
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: _miniTile(
                   'Dealers',
-                  data.dealerships.isEmpty ? '-' : '${data.dealerships.length} brands',
+                  data.dealerships.isEmpty
+                      ? '-'
+                      : '${data.dealerships.length} brands',
                 ),
               ),
             ],
@@ -961,7 +1006,10 @@ class _BusinessCardTemplate4 extends StatelessWidget {
         children: [
           Row(
             children: [
-              _BusinessCardLogo(imagePath: data.imagePath, firmName: data.firmName),
+              _BusinessCardLogo(
+                imagePath: data.imagePath,
+                firmName: data.firmName,
+              ),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
@@ -978,12 +1026,27 @@ class _BusinessCardTemplate4 extends StatelessWidget {
           const SizedBox(height: 10),
           const Divider(color: Colors.white38, height: 1),
           const SizedBox(height: 10),
-          _BusinessCardInfoRow(icon: Icons.person_outline, text: data.ownerName.isEmpty ? '-' : data.ownerName),
+          _BusinessCardInfoRow(
+            icon: Icons.person_outline,
+            text: data.ownerName.isEmpty ? '-' : data.ownerName,
+          ),
           _BusinessCardInfoRow(icon: Icons.phone_outlined, text: data.mobile),
-          _BusinessCardInfoRow(icon: Icons.chat_outlined, text: data.whatsapp.isEmpty ? '-' : data.whatsapp),
-          _BusinessCardInfoRow(icon: Icons.receipt_long_outlined, text: data.gstNumber.isEmpty ? '-' : data.gstNumber),
-          _BusinessCardInfoRow(icon: Icons.apartment_outlined, text: data.dealerships.isEmpty ? '-' : data.dealerships.join(', ')),
-          _BusinessCardInfoRow(icon: Icons.location_on_outlined, text: data.address.isEmpty ? '-' : data.address),
+          _BusinessCardInfoRow(
+            icon: Icons.chat_outlined,
+            text: data.whatsapp.isEmpty ? '-' : data.whatsapp,
+          ),
+          _BusinessCardInfoRow(
+            icon: Icons.receipt_long_outlined,
+            text: data.gstNumber.isEmpty ? '-' : data.gstNumber,
+          ),
+          _BusinessCardInfoRow(
+            icon: Icons.apartment_outlined,
+            text: data.dealerships.isEmpty ? '-' : data.dealerships.join(', '),
+          ),
+          _BusinessCardInfoRow(
+            icon: Icons.location_on_outlined,
+            text: data.address.isEmpty ? '-' : data.address,
+          ),
         ],
       ),
     );
@@ -1019,7 +1082,10 @@ class _BusinessCardTemplate5 extends StatelessWidget {
                   style: const TextStyle(color: Colors.white70),
                 ),
               ),
-              _BusinessCardLogo(imagePath: data.imagePath, firmName: data.firmName),
+              _BusinessCardLogo(
+                imagePath: data.imagePath,
+                firmName: data.firmName,
+              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -1062,10 +1128,7 @@ class _BusinessCardTemplate5 extends StatelessWidget {
 }
 
 class _BusinessCardShell extends StatelessWidget {
-  const _BusinessCardShell({
-    required this.gradient,
-    required this.child,
-  });
+  const _BusinessCardShell({required this.gradient, required this.child});
 
   final List<Color> gradient;
   final Widget child;
@@ -1082,19 +1145,13 @@ class _BusinessCardShell extends StatelessWidget {
           end: Alignment.bottomRight,
         ),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: child,
-      ),
+      child: Padding(padding: const EdgeInsets.all(16), child: child),
     );
   }
 }
 
 class _BusinessCardInfoRow extends StatelessWidget {
-  const _BusinessCardInfoRow({
-    required this.icon,
-    required this.text,
-  });
+  const _BusinessCardInfoRow({required this.icon, required this.text});
 
   final IconData icon;
   final String text;
@@ -1124,18 +1181,16 @@ class _BusinessCardInfoRow extends StatelessWidget {
 }
 
 class _BusinessCardLogo extends StatelessWidget {
-  const _BusinessCardLogo({
-    required this.imagePath,
-    required this.firmName,
-  });
+  const _BusinessCardLogo({required this.imagePath, required this.firmName});
 
   final String? imagePath;
   final String firmName;
 
   @override
   Widget build(BuildContext context) {
-    final file =
-        imagePath != null && imagePath!.isNotEmpty ? File(imagePath!) : null;
+    final file = imagePath != null && imagePath!.isNotEmpty
+        ? File(imagePath!)
+        : null;
     final hasImage = file != null && file.existsSync();
     return CircleAvatar(
       radius: 20,
@@ -1192,8 +1247,7 @@ class _PreviewSectionCard extends StatelessWidget {
           children: [
             Text(title, style: titleStyle),
             const SizedBox(height: 12),
-            if (visibleFields.isEmpty)
-              const Text('No details provided.'),
+            if (visibleFields.isEmpty) const Text('No details provided.'),
             for (final field in visibleFields) ...[
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1224,12 +1278,14 @@ class _AddressSectionCard extends StatelessWidget {
     required this.addresses,
     required this.selectedIndexes,
     required this.onToggle,
+    required this.onOpenMap,
   });
 
   final TextStyle titleStyle;
   final List<AddressPreview> addresses;
   final Set<int> selectedIndexes;
   final void Function(int index, bool checked) onToggle;
+  final Future<void> Function(String addressText) onOpenMap;
 
   @override
   Widget build(BuildContext context) {
@@ -1249,10 +1305,147 @@ class _AddressSectionCard extends StatelessWidget {
                 contentPadding: EdgeInsets.zero,
                 dense: true,
                 title: Text(addresses[i].title),
-                subtitle: Text(addresses[i].lines.join('\n')),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(addresses[i].lines.join('\n')),
+                    const SizedBox(height: 6),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: _MapActionButton(
+                        onTap: () => onOpenMap(addresses[i].lines.join(', ')),
+                      ),
+                    ),
+                  ],
+                ),
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _MapActionButton extends StatefulWidget {
+  const _MapActionButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  State<_MapActionButton> createState() => _MapActionButtonState();
+}
+
+class _MapActionButtonState extends State<_MapActionButton> {
+  bool _hover = false;
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final scale = _pressed
+        ? 0.96
+        : _hover
+        ? 1.02
+        : 1.0;
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() {
+        _hover = false;
+        _pressed = false;
+      }),
+      child: GestureDetector(
+        onTapDown: (_) => setState(() => _pressed = true),
+        onTapUp: (_) => setState(() => _pressed = false),
+        onTapCancel: () => setState(() => _pressed = false),
+        onTap: widget.onTap,
+        child: AnimatedScale(
+          duration: const Duration(milliseconds: 120),
+          scale: scale,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              color: scheme.primary.withValues(alpha: 0.1),
+              border: Border.all(color: scheme.primary.withValues(alpha: 0.4)),
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _GoogleMapsLogo(),
+                SizedBox(width: 6),
+                Text(
+                  'Open in Google Maps',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GoogleMapsLogo extends StatelessWidget {
+  const _GoogleMapsLogo();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 18,
+      height: 18,
+      child: Stack(
+        children: [
+          Positioned(
+            left: 3,
+            top: 2,
+            child: Container(
+              width: 12,
+              height: 12,
+              decoration: const BoxDecoration(
+                color: Color(0xFF34A853),
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+          Positioned(
+            left: 7,
+            top: 0,
+            child: Container(
+              width: 7,
+              height: 7,
+              decoration: const BoxDecoration(
+                color: Color(0xFF4285F4),
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+          Positioned(
+            left: 0,
+            top: 5,
+            child: Container(
+              width: 7,
+              height: 7,
+              decoration: const BoxDecoration(
+                color: Color(0xFFFBBC05),
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+          Positioned(
+            left: 6,
+            top: 9,
+            child: Container(
+              width: 6,
+              height: 6,
+              decoration: const BoxDecoration(
+                color: Color(0xFFEA4335),
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1296,9 +1489,9 @@ class _BankAccountsSectionCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 6),
-                    for (final field in accounts[i]
-                        .fields
-                        .where((f) => f.value.isNotEmpty))
+                    for (final field in accounts[i].fields.where(
+                      (f) => f.value.isNotEmpty,
+                    ))
                       Padding(
                         padding: const EdgeInsets.only(bottom: 6),
                         child: Row(
@@ -1308,7 +1501,9 @@ class _BankAccountsSectionCard extends StatelessWidget {
                               flex: 3,
                               child: Text(
                                 field.label,
-                                style: const TextStyle(fontWeight: FontWeight.w600),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ),
                             const SizedBox(width: 8),

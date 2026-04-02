@@ -19,6 +19,7 @@ dependencies:
   google_fonts: ^8.0.2
   mcp_toolkit: ^0.4.0
   phone_email_auth: ^0.0.6
+  url_launcher: ^6.3.1
 
 dev_dependencies:
   flutter_test:
@@ -30,3 +31,4 @@ flutter:
   assets:
     - assets/data/pincode_lookup.json
     - assets/data/company_suggestions.json
+

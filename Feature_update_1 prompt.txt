@@ -1,0 +1,36 @@
+You are an expert Flutter Developer specializing in premium UI/UX design. 
+Implement the following features and UI overhaul for my project using custom components that avoid generic Material defaults.
+
+Context & Inspiration:
+- Design Target: Emulate the premium, highly interactive aesthetic of "contextflowai.online" (Vercel-like, glossy cards, soft gradients, smooth glassmorphism, and subtle micro-interactions).
+- Color Palette: 
+  * Primary: Shades of Green.
+  * Secondary (Light Mode): Crisp whites and soft zinc/gray borders.
+  * Secondary (Dark Mode): Deep dark backgrounds (avoid pure black; use rich dark grays) with glowing borders.
+
+Functional Requirements:
+
+1. Address Action Button:
+   - Near the user's address text, add a custom button with the Google Maps logo icon.
+   - Action: When tapped, it should launch the specific address directly on Google Maps.
+
+2. Interactive Sidebar Navigation:
+   - Create a collapsable sidebar to act as the primary navigation tool.
+   - Sidebar items to include:
+     - Settings (Must contain a visually appealing "Multilingual feature coming soon" placeholder widget).
+     - Log Out.
+     - Add Accounts.
+   - Maintain the glassy, high-contrast style specified in the design target.
+
+3. Universal Search Bar:
+   - Place a search bar at the top of the main view.
+   - Capabilities: Users can perform a global search against other users' profiles using Name, Firm Name, City, or Address.
+
+4. Theming & Animations:
+   - Full dark and light mode toggle integration.
+   - Add a high-fidelity, fancy background animation (e.g., slow-moving mesh gradients or floating particles) that does not cause dropped frames or layout lag.
+   - All interactive elements (buttons, search bars, inputs) must have explicit hover, focus, or tap-scale animations to feel highly responsive.
+
+Constraints:
+- Adhere strictly to the "offline-first" sync rule for the search and address functions if accessing stored local data.
+- Ensure the state management smoothly handles the active toggle between light and dark modes without flickering the background canvas.
