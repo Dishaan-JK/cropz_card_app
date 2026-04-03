@@ -3,14 +3,65 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phone_email_auth/phone_email_auth.dart';
 
 import '../../../../shared/core/config/otp_branding_config.dart';
+import '../../../../shared/core/config/supabase_config.dart';
 import '../../../cropz_card/presentation/pages/cropz_card_home_page.dart';
+import '../../data/services/session_guard_event.dart';
 import '../providers/auth_providers.dart';
+import '../providers/session_guard_providers.dart';
 
-class AuthGate extends ConsumerWidget {
+class AuthGate extends ConsumerStatefulWidget {
   const AuthGate({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends ConsumerState<AuthGate> {
+  ProviderSubscription<AsyncValue<SessionGuardEvent>>? _guardSub;
+
+  @override
+  void initState() {
+    super.initState();
+    if (!SupabaseConfig.isConfigured) {
+      return;
+    }
+
+    _guardSub = ref.listenManual<AsyncValue<SessionGuardEvent>>(
+      sessionGuardEventsProvider,
+      (previous, next) {
+        next.whenData((event) async {
+          if (event.type == SessionGuardEventType.revoked ||
+              event.type == SessionGuardEventType.invalid) {
+            await ref.read(sessionGuardServiceProvider).clearLocalSession();
+            ref.read(authControllerProvider.notifier).logout();
+            if (!mounted) {
+              return;
+            }
+            final active = event.activeDevice;
+            final extra = active == null
+                ? ''
+                : ' New active device: ${active.deviceType.toUpperCase()} ${active.deviceModel}.';
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'You were logged out because this account became active on another device.$extra',
+                ),
+              ),
+            );
+          }
+        });
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _guardSub?.close();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final auth = ref.watch(authControllerProvider);
     if (auth.step == AuthStep.authenticated) {
       return const CropzCardHomePage();
@@ -159,7 +210,7 @@ class _OtpAuthPageState extends ConsumerState<OtpAuthPage> {
               borderRadius: 16,
               buttonColor: const Color(0xFF0F766E),
               label: 'Continue',
-              onSuccess: (String accessToken, String jwtToken) {
+              onSuccess: (String accessToken, String jwtToken) async {
                 notifier.markLoginInProgress();
                 if (accessToken.isEmpty || jwtToken.isEmpty) {
                   notifier.setError('Authentication token was empty.');
@@ -168,7 +219,7 @@ class _OtpAuthPageState extends ConsumerState<OtpAuthPage> {
                 PhoneEmail.getUserInfo(
                   accessToken: accessToken,
                   clientId: _phoneEmail.clientId,
-                  onSuccess: (userData) {
+                  onSuccess: (userData) async {
                     final verifiedPhone = userData.phoneNumber ?? '';
                     if (verifiedPhone.isEmpty) {
                       notifier.setError('Verified phone number was empty.');
@@ -181,6 +232,18 @@ class _OtpAuthPageState extends ConsumerState<OtpAuthPage> {
                       firstName: userData.firstName ?? '',
                       lastName: userData.lastName ?? '',
                     );
+
+                    if (!SupabaseConfig.isConfigured) {
+                      return;
+                    }
+
+                    try {
+                      await ref
+                          .read(sessionGuardServiceProvider)
+                          .bootstrapAfterLogin();
+                    } catch (_) {
+                      // Login should continue even when Supabase session guard setup fails.
+                    }
                   },
                 );
               },

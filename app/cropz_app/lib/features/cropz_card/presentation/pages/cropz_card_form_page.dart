@@ -16,6 +16,7 @@ import 'cropz_card_preview_page.dart';
 import '../providers/cropz_card_providers.dart';
 import '../../../../shared/data/local/company_suggestions_data_source.dart';
 import '../../../../shared/data/local/pincode_lookup_data_source.dart';
+import '../../../../shared/presentation/services/access_permission_service.dart';
 
 class CropzCardFormPage extends ConsumerStatefulWidget {
   const CropzCardFormPage({super.key, this.initialDetails});
@@ -27,6 +28,8 @@ class CropzCardFormPage extends ConsumerStatefulWidget {
 }
 
 class _CropzCardFormPageState extends ConsumerState<CropzCardFormPage> {
+  final AccessPermissionService _accessPermissionService =
+      const AccessPermissionService();
   final _formKey = GlobalKey<FormState>();
   final _pincodeLookup = const PincodeLookupDataSource();
   final _companySuggestionsSource = const CompanySuggestionsDataSource();
@@ -392,7 +395,7 @@ class _CropzCardFormPageState extends ConsumerState<CropzCardFormPage> {
             profileId: widget.initialDetails?.profile.id,
             cropzId: widget.initialDetails?.profile.cropzId,
             addressType: address.addressType.text.trim().isEmpty
-                ? 'office'
+                ? 'shop'
                 : address.addressType.text.trim(),
             address1: address.address1.text.trim().isEmpty
                 ? null
@@ -457,6 +460,15 @@ class _CropzCardFormPageState extends ConsumerState<CropzCardFormPage> {
   }
 
   Future<void> _pickAndStoreDocument(_DocumentType type) async {
+    final hasPermission = await _accessPermissionService.requestStorageAccess(
+      context,
+      reason:
+          'Cropz Card needs storage/media access to select and attach license documents.',
+    );
+    if (!hasPermission) {
+      return;
+    }
+
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: const ['pdf', 'png', 'jpg', 'jpeg', 'webp'],
@@ -500,6 +512,15 @@ class _CropzCardFormPageState extends ConsumerState<CropzCardFormPage> {
   }
 
   Future<void> _pickAndStoreProfileImage() async {
+    final hasPermission = await _accessPermissionService.requestStorageAccess(
+      context,
+      reason:
+          'Cropz Card needs storage/media access to select a profile image.',
+    );
+    if (!hasPermission) {
+      return;
+    }
+
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: const ['png', 'jpg', 'jpeg', 'webp'],
@@ -548,18 +569,30 @@ class _CropzCardFormPageState extends ConsumerState<CropzCardFormPage> {
       );
       return;
     }
-    await SharePlus.instance.share(
-      ShareParams(files: [XFile(path)], text: '$label document'),
-    );
+    try {
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(file.path, name: p.basename(file.path))],
+          text: '$label document',
+        ),
+      );
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Unable to share $label document right now')),
+      );
+    }
   }
 
   void _showSnack(String message) {
     if (!mounted) {
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _openPreview() async {
@@ -643,25 +676,30 @@ class _CropzCardFormPageState extends ConsumerState<CropzCardFormPage> {
   }
 
   List<AddressPreview> _buildAddressesFromForm() {
-    return _addresses.asMap().entries.map((entry) {
-      final data = entry.value;
-      final type = data.addressType.text.trim();
-      final title = type.isEmpty
-          ? 'Address ${entry.key + 1}'
-          : '${type[0].toUpperCase()}${type.substring(1)} Address';
-      final lines = <String>[
-        data.address1.text.trim(),
-        data.address2.text.trim(),
-        data.address3.text.trim(),
-        data.city.text.trim(),
-        data.taluk.text.trim(),
-        data.block.text.trim(),
-        data.district.text.trim(),
-        data.state.text.trim(),
-        data.pincode.text.trim(),
-      ].where((value) => value.isNotEmpty).toList();
-      return AddressPreview(title: title, lines: lines);
-    }).where((address) => address.lines.isNotEmpty).toList();
+    return _addresses
+        .asMap()
+        .entries
+        .map((entry) {
+          final data = entry.value;
+          final type = data.addressType.text.trim();
+          final title = type.isEmpty
+              ? 'Address ${entry.key + 1}'
+              : '${type[0].toUpperCase()}${type.substring(1)} Address';
+          final lines = <String>[
+            data.address1.text.trim(),
+            data.address2.text.trim(),
+            data.address3.text.trim(),
+            data.city.text.trim(),
+            data.taluk.text.trim(),
+            data.block.text.trim(),
+            data.district.text.trim(),
+            data.state.text.trim(),
+            data.pincode.text.trim(),
+          ].where((value) => value.isNotEmpty).toList();
+          return AddressPreview(title: title, lines: lines);
+        })
+        .where((address) => address.lines.isNotEmpty)
+        .toList();
   }
 
   List<BankPreview> _buildBankAccountsFromForm() {
@@ -1294,9 +1332,7 @@ class _CropzCardFormPageState extends ConsumerState<CropzCardFormPage> {
                                         : () async {
                                             if (_currentStep <
                                                 _totalSteps - 1) {
-                                              setState(
-                                                () => _currentStep += 1,
-                                              );
+                                              setState(() => _currentStep += 1);
                                               return;
                                             }
                                             await _submit();
@@ -1319,8 +1355,9 @@ class _CropzCardFormPageState extends ConsumerState<CropzCardFormPage> {
                                     ),
                                   const Spacer(),
                                   OutlinedButton.icon(
-                                    onPressed:
-                                        saveState.isSaving ? null : _submit,
+                                    onPressed: saveState.isSaving
+                                        ? null
+                                        : _submit,
                                     icon: const Icon(Icons.save_outlined),
                                     label: const Text('Save'),
                                   ),
@@ -1545,8 +1582,9 @@ class _StepHeaderBar extends StatelessWidget {
           final bgColor = isActive || isComplete
               ? scheme.primary
               : Colors.grey.shade300;
-          final fgColor =
-              isActive || isComplete ? Colors.white : Colors.grey.shade700;
+          final fgColor = isActive || isComplete
+              ? Colors.white
+              : Colors.grey.shade700;
 
           return Padding(
             padding: EdgeInsets.only(right: index == steps.length - 1 ? 0 : 12),
@@ -1554,7 +1592,10 @@ class _StepHeaderBar extends StatelessWidget {
               borderRadius: BorderRadius.circular(24),
               onTap: () => onStepTapped(index),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: isActive
                       ? scheme.primary.withOpacity(0.1)
@@ -1572,7 +1613,11 @@ class _StepHeaderBar extends StatelessWidget {
                       radius: 12,
                       backgroundColor: bgColor,
                       child: isComplete
-                          ? const Icon(Icons.check, size: 14, color: Colors.white)
+                          ? const Icon(
+                              Icons.check,
+                              size: 14,
+                              color: Colors.white,
+                            )
                           : Text(
                               '${index + 1}',
                               style: TextStyle(
@@ -1585,11 +1630,10 @@ class _StepHeaderBar extends StatelessWidget {
                     const SizedBox(width: 8),
                     DefaultTextStyle(
                       style: TextStyle(
-                        fontWeight:
-                            isActive ? FontWeight.w700 : FontWeight.w600,
-                        color: isActive
-                            ? scheme.primary
-                            : Colors.grey.shade700,
+                        fontWeight: isActive
+                            ? FontWeight.w700
+                            : FontWeight.w600,
+                        color: isActive ? scheme.primary : Colors.grey.shade700,
                       ),
                       child: steps[index].title,
                     ),
@@ -1603,7 +1647,6 @@ class _StepHeaderBar extends StatelessWidget {
     );
   }
 }
-
 
 enum _DocumentType { seedLicense, pesticideLicense, fertilizerLicense, gst }
 
@@ -1708,7 +1751,6 @@ class _AddressSection extends StatelessWidget {
                   ? null
                   : data.addressType.text.trim().toLowerCase(),
               items: const [
-                DropdownMenuItem(value: 'office', child: Text('Office')),
                 DropdownMenuItem(value: 'shop', child: Text('Shop')),
                 DropdownMenuItem(value: 'godown', child: Text('Godown')),
                 DropdownMenuItem(value: 'branch', child: Text('Branch')),
@@ -1774,10 +1816,7 @@ class _AddressSection extends StatelessWidget {
                   padding: const EdgeInsets.only(top: 6),
                   child: Text(
                     'Loading pincode mapping...',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey.shade700,
-                    ),
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
                   ),
                 ),
               ),
@@ -1811,10 +1850,7 @@ class _AddressSection extends StatelessWidget {
                 alignment: Alignment.centerLeft,
                 child: Text(
                   'Suggestions from pincode (tap to fill, or type manually):',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey.shade700,
-                  ),
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
                 ),
               ),
               const SizedBox(height: 8),
@@ -1956,7 +1992,7 @@ class _AddressFormData {
 
   factory _AddressFormData.empty() {
     return _AddressFormData(
-      addressType: TextEditingController(text: 'office'),
+      addressType: TextEditingController(text: 'shop'),
       address1: TextEditingController(),
       address2: TextEditingController(),
       address3: TextEditingController(),
@@ -1973,10 +2009,9 @@ class _AddressFormData {
   }
 
   factory _AddressFormData.fromEntity(ProfileAddress entity) {
-    final normalized =
-        (entity.addressType ?? '').trim().toLowerCase();
-    final allowed = const {'office', 'shop', 'godown', 'branch'};
-    final value = allowed.contains(normalized) ? normalized : 'office';
+    final normalized = (entity.addressType ?? '').trim().toLowerCase();
+    final allowed = const {'shop', 'godown', 'branch'};
+    final value = allowed.contains(normalized) ? normalized : 'shop';
     return _AddressFormData(
       id: entity.id,
       addressType: TextEditingController(text: value),

@@ -1,0 +1,30 @@
+You are an expert Solutions Architect and Full-Stack Developer. 
+I need to implement an up-to-date Document Management System (DMS) for product license documents in my application. This must tie a Flutter frontend with a Supabase backend and use an OpenClaw agent for automation.
+
+Context & Clarification:
+- "Documents" specifically refers to Product License Documents.
+- These do not relate to the standard uploadable documents in the business cards of general users.
+- Stack: Flutter (App), Supabase ( DB, Storage), OpenClaw (Autonomous Agent).
+
+Role-Based Access Control (RBAC):
+1. Admin (Strictly limited to a pre-approved list of users): Full control over app features, access to premium lists, and absolute control over uploaded documents.
+2. Company Staff: Authorized employees of specific companies. Can ONLY upload and remove product license documents relating to their respective authorized company/ies. Can view and documents uploaded by other companies in a dedicated tab.
+3. Farmers: Standard users with access to normal features. Access to premium features requires payment. Can view and download documents only.
+4. Dealers / Shopkeepers: Same tier as Farmers. Can view and download documents only.
+5. Public: The documents can be viewed and downloaded by anyone.
+
+Automation Workflow (OpenClaw):
+- Trigger: An authorized Company Staff member uploads a product license document.
+- Processing: The OpenClaw agent automatically activates, scans the document data, and extracts the core text metrics. 
+- Output 1: It maps and pushes structured metadata extracted from the scan back to Supabase tables.
+- Output 2: It generates a processed, clean PDF version of the file.
+- Registration: After checking and manual approval from an Admin user, the OpenClaw agent formally registers the processed PDF under the correct company's library with the precise date of upload.
+
+Feature Requirements:
+- Sidebar Navigation: Add a separate tab only visible to Company Staff to see global uploads and contribute their own files.
+- Universal Search Bar: Must be able to perform lookups on documents using Company Name, Product Name, and Uploaded Date.
+
+Task for the AI:
+1. Use Mcp to implement the specific Supabase database schema (including tables for Documents, Companies, and User Roles) with Row Level Security (RLS) policies enforcing that only specific company staff can write/delete their company's files.
+2. Plan to connect Openclaw agent to app. Write a Node.js boilerplate file or an OpenClaw "skill" (using its standard workspace pattern) that acts as the agent processing the file and uploading the parsed results back to the Supabase endpoint.
+3. Provide the Flutter Dart repository code acting as the frontend bridge to fetch these files under the respective company filters.

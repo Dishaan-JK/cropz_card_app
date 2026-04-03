@@ -4,8 +4,10 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../shared/core/config/supabase_config.dart';
 import '../../../../shared/presentation/providers/theme_mode_provider.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../../auth/presentation/providers/session_guard_providers.dart';
 import '../providers/cropz_card_providers.dart';
 import 'cropz_card_form_page.dart';
 import 'cropz_card_preview_page.dart';
@@ -27,6 +29,7 @@ class _CropzCardHomePageState extends ConsumerState<CropzCardHomePage> {
   bool _sidebarCollapsed = false;
   _SidebarItem _activeItem = _SidebarItem.dashboard;
   int _interactionTick = 0;
+  bool _isAccountActionInProgress = false;
 
   @override
   void dispose() {
@@ -36,7 +39,33 @@ class _CropzCardHomePageState extends ConsumerState<CropzCardHomePage> {
   }
 
   void _triggerBackgroundPulse() {
+    _searchFocusNode.unfocus();
     setState(() => _interactionTick++);
+  }
+
+  Future<void> _switchAccountOrLogout() async {
+    if (_isAccountActionInProgress) {
+      return;
+    }
+    _triggerBackgroundPulse();
+    setState(() => _isAccountActionInProgress = true);
+    try {
+      if (SupabaseConfig.isConfigured) {
+        await ref.read(sessionGuardServiceProvider).clearLocalSession();
+      }
+      ref.read(authControllerProvider.notifier).logout();
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Unable to log out: $error')));
+    } finally {
+      if (mounted) {
+        setState(() => _isAccountActionInProgress = false);
+      }
+    }
   }
 
   Future<void> _openForm({int? profileId}) async {
@@ -214,18 +243,9 @@ class _CropzCardHomePageState extends ConsumerState<CropzCardHomePage> {
                         Expanded(
                           child: _activeItem == _SidebarItem.settings
                               ? _SettingsPanel(
-                                  onAddAccount: () {
-                                    _triggerBackgroundPulse();
-                                    ref
-                                        .read(authControllerProvider.notifier)
-                                        .logout();
-                                  },
-                                  onLogout: () {
-                                    _triggerBackgroundPulse();
-                                    ref
-                                        .read(authControllerProvider.notifier)
-                                        .logout();
-                                  },
+                                  onAddAccount: _switchAccountOrLogout,
+                                  onLogout: _switchAccountOrLogout,
+                                  isBusy: _isAccountActionInProgress,
                                 )
                               : _buildDashboard(searchable, query),
                         ),
@@ -454,6 +474,7 @@ class _AnimatedSearchBarState extends State<_AnimatedSearchBar> {
         child: TextField(
           controller: widget.controller,
           focusNode: widget.focusNode,
+          onTapOutside: (_) => widget.focusNode.unfocus(),
           onChanged: widget.onChanged,
           decoration: const InputDecoration(
             border: InputBorder.none,
@@ -871,10 +892,15 @@ class _EmptyState extends StatelessWidget {
 }
 
 class _SettingsPanel extends StatelessWidget {
-  const _SettingsPanel({required this.onAddAccount, required this.onLogout});
+  const _SettingsPanel({
+    required this.onAddAccount,
+    required this.onLogout,
+    required this.isBusy,
+  });
 
-  final VoidCallback onAddAccount;
-  final VoidCallback onLogout;
+  final Future<void> Function() onAddAccount;
+  final Future<void> Function() onLogout;
+  final bool isBusy;
 
   @override
   Widget build(BuildContext context) {
@@ -933,13 +959,13 @@ class _SettingsPanel extends StatelessWidget {
                 ),
                 const SizedBox(height: 14),
                 FilledButton.icon(
-                  onPressed: onAddAccount,
+                  onPressed: isBusy ? null : onAddAccount,
                   icon: const Icon(Icons.switch_account_outlined),
                   label: const Text('Add Accounts'),
                 ),
                 const SizedBox(height: 10),
                 OutlinedButton.icon(
-                  onPressed: onLogout,
+                  onPressed: isBusy ? null : onLogout,
                   icon: const Icon(Icons.logout_rounded),
                   label: const Text('Log Out Account'),
                 ),
@@ -976,3 +1002,4 @@ class _InfoChip extends StatelessWidget {
     );
   }
 }
+

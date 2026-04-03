@@ -1,0 +1,15 @@
+You are an expert Flutter Developer. I need to fix several bugs and optimize performance issues in my application. 
+
+For the remaining items, please provide the actual Dart/Flutter code fixes:
+
+- Events like Log-out, add account, Google map address, and sharing image and pdf either do not work or take too much time.
+- The app does not remember the mode of the user (Light mode/dark mode). The last previous setting should be applied not the universal defaults.
+- Remove the "office" address type
+- When the user clicks elsewhere or interacts with widgets after using search, the search cursor should disappear and control should move to the interacting widget
+
+Important note :
+
+- If any of the following can be fixed by integration with back-end providers then list those fixes and ignore them.
+Constraints:
+- Do not break the app's existing state management solution when wiring up the persistent theme or the focus nodes.
+- Maintain your clean code standards.

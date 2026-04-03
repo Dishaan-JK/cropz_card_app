@@ -156,12 +156,13 @@ class CropzCardPreviewPage extends StatefulWidget {
     required Set<int> selectedBankIndexes,
     required Set<int> selectedAddressIndexes,
   }) async {
+    final messenger = ScaffoldMessenger.maybeOf(context);
     try {
       if (!includeBusiness &&
           !includeLicenseInfo &&
           !(includeBankAccounts && selectedBankIndexes.isNotEmpty) &&
           !(includeAddress && selectedAddressIndexes.isNotEmpty)) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger?.showSnackBar(
           const SnackBar(
             content: Text('Select at least one section to share.'),
           ),
@@ -253,25 +254,23 @@ class CropzCardPreviewPage extends StatefulWidget {
       );
 
       final bytes = await doc.save();
-      final appDocDir = await getApplicationDocumentsDirectory();
-      final targetDir = Directory(p.join(appDocDir.path, 'cropz_exports'));
-      if (!targetDir.existsSync()) {
-        targetDir.createSync(recursive: true);
-      }
+      final tempDir = await getTemporaryDirectory();
+      final targetDir = Directory(p.join(tempDir.path, 'cropz_exports'));
+      await targetDir.create(recursive: true);
       final fileName =
           'cropz_preview_${DateTime.now().millisecondsSinceEpoch}.pdf';
       final filePath = p.join(targetDir.path, fileName);
       final file = File(filePath);
-      await file.writeAsBytes(bytes, flush: true);
+      await file.writeAsBytes(bytes);
 
       await SharePlus.instance.share(
         ShareParams(
-          files: [XFile(file.path)],
+          files: [XFile(file.path, name: fileName)],
           text: 'Cropz Card Business & License Info Details',
         ),
       );
     } catch (_) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger?.showSnackBar(
         const SnackBar(
           content: Text('Unable to generate PDF. Please try again.'),
         ),
@@ -368,26 +367,27 @@ class _CropzCardPreviewPageState extends State<CropzCardPreviewPage> {
     }
 
     final encoded = Uri.encodeComponent(query);
+    final geoUri = Uri.parse('geo:0,0?q=$encoded');
     final appUri = Uri.parse('comgooglemaps://?q=$encoded');
     final webUri = Uri.parse(
       'https://www.google.com/maps/search/?api=1&query=$encoded',
     );
 
-    final openedInApp = await launchUrl(
-      appUri,
-      mode: LaunchMode.externalApplication,
-    );
-
-    if (openedInApp) {
-      return;
+    final candidates = [geoUri, appUri, webUri];
+    for (final uri in candidates) {
+      final canOpen = await canLaunchUrl(uri);
+      if (!canOpen) {
+        continue;
+      }
+      final opened = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (opened) {
+        return;
+      }
     }
-
-    final openedInWeb = await launchUrl(
-      webUri,
-      mode: LaunchMode.externalApplication,
-    );
-
-    if (!openedInWeb && mounted) {
+    if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Unable to open address in Google Maps.')),
       );
@@ -425,34 +425,37 @@ class _CropzCardPreviewPageState extends State<CropzCardPreviewPage> {
     }
     setState(() => _isSharingBusinessCard = true);
     try {
-      await Future<void>.delayed(const Duration(milliseconds: 80));
+      final pixelRatio = MediaQuery.devicePixelRatioOf(
+        context,
+      ).clamp(2.0, 3.0);
+      await WidgetsBinding.instance.endOfFrame;
       final boundary =
           _businessCardKey.currentContext?.findRenderObject()
               as RenderRepaintBoundary?;
       if (boundary == null) {
         return;
       }
-      final image = await boundary.toImage(pixelRatio: 3);
+      final image = await boundary.toImage(pixelRatio: pixelRatio);
       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
       if (byteData == null) {
         return;
       }
       final bytes = byteData.buffer.asUint8List();
-      final appDocDir = await getApplicationDocumentsDirectory();
-      final targetDir = Directory(p.join(appDocDir.path, 'cropz_exports'));
-      if (!targetDir.existsSync()) {
-        targetDir.createSync(recursive: true);
-      }
+      final tempDir = await getTemporaryDirectory();
+      final targetDir = Directory(p.join(tempDir.path, 'cropz_exports'));
+      await targetDir.create(recursive: true);
+      final fileName =
+          'cropz_business_card_${DateTime.now().millisecondsSinceEpoch}.png';
       final file = File(
         p.join(
           targetDir.path,
-          'cropz_business_card_${DateTime.now().millisecondsSinceEpoch}.png',
+          fileName,
         ),
       );
-      await file.writeAsBytes(bytes, flush: true);
+      await file.writeAsBytes(bytes);
       await SharePlus.instance.share(
         ShareParams(
-          files: [XFile(file.path)],
+          files: [XFile(file.path, name: fileName)],
           text: 'Cropz Digital Business Card',
         ),
       );
