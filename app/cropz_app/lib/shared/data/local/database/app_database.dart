@@ -3,11 +3,12 @@ import 'package:sqflite/sqflite.dart';
 
 class AppDatabase {
   static const String _databaseName = 'cropz_local.db';
-  static const int _databaseVersion = 3;
+  static const int _databaseVersion = 4;
 
   static const String profilesTable = 'profiles';
   static const String bankInfoTable = 'bank_info';
   static const String addressesTable = 'addresses';
+  static const String cardSyncQueueTable = 'card_sync_queue';
 
   Database? _db;
 
@@ -28,6 +29,9 @@ class AppDatabase {
       version: _databaseVersion,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
+      onOpen: (db) async {
+        await _ensureCardSyncQueueSchema(db);
+      },
     );
   }
 
@@ -97,6 +101,22 @@ class AppDatabase {
         FOREIGN KEY(profile_id) REFERENCES $profilesTable(id) ON DELETE CASCADE
       )
     ''');
+
+    await db.execute('''
+      CREATE TABLE $cardSyncQueueTable (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        owner_key TEXT NOT NULL,
+        card_key TEXT NOT NULL,
+        payload_json TEXT NOT NULL,
+        deleted INTEGER NOT NULL DEFAULT 0,
+        updated_at_ms INTEGER NOT NULL,
+        attempts INTEGER NOT NULL DEFAULT 0,
+        last_error TEXT
+      )
+    ''');
+    await db.execute(
+      'CREATE UNIQUE INDEX idx_card_sync_unique ON $cardSyncQueueTable(card_key)',
+    );
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
@@ -111,11 +131,106 @@ class AppDatabase {
         'ALTER TABLE $profilesTable ADD COLUMN profile_picture TEXT',
       );
     }
+
+    if (oldVersion < 4) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS $cardSyncQueueTable (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          owner_key TEXT NOT NULL,
+          card_key TEXT NOT NULL,
+          payload_json TEXT NOT NULL,
+          deleted INTEGER NOT NULL DEFAULT 0,
+          updated_at_ms INTEGER NOT NULL,
+          attempts INTEGER NOT NULL DEFAULT 0,
+          last_error TEXT
+        )
+      ''');
+      await db.execute(
+        'CREATE UNIQUE INDEX IF NOT EXISTS idx_card_sync_unique ON $cardSyncQueueTable(card_key)',
+      );
+    }
   }
 
   Future<void> _dropAllTables(Database db) async {
+    await db.execute('DROP TABLE IF EXISTS $cardSyncQueueTable');
     await db.execute('DROP TABLE IF EXISTS $addressesTable');
     await db.execute('DROP TABLE IF EXISTS $bankInfoTable');
     await db.execute('DROP TABLE IF EXISTS $profilesTable');
+  }
+
+  Future<void> _ensureCardSyncQueueSchema(Database db) async {
+    final tableExists = await _tableExists(db, cardSyncQueueTable);
+    if (!tableExists) {
+      await db.execute('''
+        CREATE TABLE $cardSyncQueueTable (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          owner_key TEXT NOT NULL,
+          card_key TEXT NOT NULL,
+          payload_json TEXT NOT NULL,
+          deleted INTEGER NOT NULL DEFAULT 0,
+          updated_at_ms INTEGER NOT NULL,
+          attempts INTEGER NOT NULL DEFAULT 0,
+          last_error TEXT
+        )
+      ''');
+      await db.execute(
+        'CREATE UNIQUE INDEX IF NOT EXISTS idx_card_sync_unique ON $cardSyncQueueTable(card_key)',
+      );
+      return;
+    }
+
+    final rows = await db.rawQuery('PRAGMA table_info($cardSyncQueueTable)');
+    final columns = rows
+        .map((row) => (row['name'] ?? '').toString())
+        .where((name) => name.isNotEmpty)
+        .toSet();
+
+    if (!columns.contains('owner_key')) {
+      await db.execute(
+        'ALTER TABLE $cardSyncQueueTable ADD COLUMN owner_key TEXT NOT NULL DEFAULT \'\'',
+      );
+    }
+    if (!columns.contains('card_key')) {
+      await db.execute(
+        'ALTER TABLE $cardSyncQueueTable ADD COLUMN card_key TEXT NOT NULL DEFAULT \'\'',
+      );
+    }
+    if (!columns.contains('payload_json')) {
+      await db.execute(
+        'ALTER TABLE $cardSyncQueueTable ADD COLUMN payload_json TEXT NOT NULL DEFAULT \'{}\'',
+      );
+    }
+    if (!columns.contains('deleted')) {
+      await db.execute(
+        'ALTER TABLE $cardSyncQueueTable ADD COLUMN deleted INTEGER NOT NULL DEFAULT 0',
+      );
+    }
+    if (!columns.contains('updated_at_ms')) {
+      await db.execute(
+        'ALTER TABLE $cardSyncQueueTable ADD COLUMN updated_at_ms INTEGER NOT NULL DEFAULT 0',
+      );
+    }
+    if (!columns.contains('attempts')) {
+      await db.execute(
+        'ALTER TABLE $cardSyncQueueTable ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0',
+      );
+    }
+    if (!columns.contains('last_error')) {
+      await db.execute(
+        'ALTER TABLE $cardSyncQueueTable ADD COLUMN last_error TEXT',
+      );
+    }
+
+    await db.execute(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_card_sync_unique ON $cardSyncQueueTable(card_key)',
+    );
+  }
+
+  Future<bool> _tableExists(Database db, String tableName) async {
+    final rows = await db.rawQuery(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name = ?",
+      [tableName],
+    );
+    return rows.isNotEmpty;
   }
 }

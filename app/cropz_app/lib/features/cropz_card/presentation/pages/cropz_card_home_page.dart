@@ -4,7 +4,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../shared/core/config/supabase_config.dart';
 import '../../../../shared/presentation/providers/theme_mode_provider.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../auth/presentation/providers/session_guard_providers.dart';
@@ -50,9 +49,8 @@ class _CropzCardHomePageState extends ConsumerState<CropzCardHomePage> {
     _triggerBackgroundPulse();
     setState(() => _isAccountActionInProgress = true);
     try {
-      if (SupabaseConfig.isConfigured) {
-        await ref.read(sessionGuardServiceProvider).clearLocalSession();
-      }
+      await ref.read(sessionGuardServiceProvider).clearLocalSession();
+      await ref.read(localSessionBackendAdapterProvider).clearCurrentUserId();
       ref.read(authControllerProvider.notifier).logout();
     } catch (error) {
       if (!mounted) {

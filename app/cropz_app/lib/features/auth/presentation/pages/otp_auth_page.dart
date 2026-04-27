@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phone_email_auth/phone_email_auth.dart';
 
 import '../../../../shared/core/config/otp_branding_config.dart';
-import '../../../../shared/core/config/supabase_config.dart';
 import '../../../cropz_card/presentation/pages/cropz_card_home_page.dart';
 import '../../data/services/session_guard_event.dart';
 import '../providers/auth_providers.dart';
@@ -22,10 +21,6 @@ class _AuthGateState extends ConsumerState<AuthGate> {
   @override
   void initState() {
     super.initState();
-    if (!SupabaseConfig.isConfigured) {
-      return;
-    }
-
     _guardSub = ref.listenManual<AsyncValue<SessionGuardEvent>>(
       sessionGuardEventsProvider,
       (previous, next) {
@@ -232,18 +227,15 @@ class _OtpAuthPageState extends ConsumerState<OtpAuthPage> {
                       firstName: userData.firstName ?? '',
                       lastName: userData.lastName ?? '',
                     );
-
-                    if (!SupabaseConfig.isConfigured) {
-                      return;
-                    }
+                    await ref
+                        .read(localSessionBackendAdapterProvider)
+                        .setCurrentUserId(verifiedPhone);
 
                     try {
                       await ref
                           .read(sessionGuardServiceProvider)
                           .bootstrapAfterLogin();
-                    } catch (_) {
-                      // Login should continue even when Supabase session guard setup fails.
-                    }
+                    } catch (_) {}
                   },
                 );
               },

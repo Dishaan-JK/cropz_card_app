@@ -1,18 +1,17 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../data/services/device_telemetry_service.dart';
+import '../../data/services/local_session_backend_adapter.dart';
 import '../../data/services/session_backend_adapter.dart';
 import '../../data/services/session_guard_event.dart';
 import '../../data/services/session_guard_service.dart';
-import '../../data/services/supabase_session_backend_adapter.dart';
 
-final supabaseClientProvider = Provider<SupabaseClient>((ref) {
-  return Supabase.instance.client;
-});
+final localSessionBackendAdapterProvider = Provider<LocalSessionBackendAdapter>(
+  (ref) => LocalSessionBackendAdapter(),
+);
 
 final sessionBackendAdapterProvider = Provider<SessionBackendAdapter>((ref) {
-  return SupabaseSessionBackendAdapter(ref.watch(supabaseClientProvider));
+  return ref.watch(localSessionBackendAdapterProvider);
 });
 
 final deviceTelemetryServiceProvider = Provider<DeviceTelemetryService>((ref) {

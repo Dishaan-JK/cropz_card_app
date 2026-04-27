@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 enum AuthStep { unauthenticated, loading, authenticated }
 
@@ -46,9 +47,41 @@ class AuthState {
 }
 
 class AuthController extends Notifier<AuthState> {
+  static const String _authStateStepKey = 'auth_state_step';
+  static const String _authPhoneKey = 'auth_phone_number';
+  static const String _authDisplayNameKey = 'auth_display_name';
+  static const String _authAccessTokenKey = 'auth_access_token';
+  static const String _authJwtTokenKey = 'auth_jwt_token';
+
+  bool _isHydrationStarted = false;
+
   @override
   AuthState build() {
+    _hydrateFromDisk();
     return const AuthState();
+  }
+
+  Future<void> _hydrateFromDisk() async {
+    if (_isHydrationStarted) {
+      return;
+    }
+    _isHydrationStarted = true;
+    final prefs = await SharedPreferences.getInstance();
+    final stepName = prefs.getString(_authStateStepKey) ?? '';
+    final step = _decodeStep(stepName);
+    if (step == AuthStep.unauthenticated) {
+      return;
+    }
+
+    state = state.copyWith(
+      step: step,
+      phoneNumber: prefs.getString(_authPhoneKey) ?? '',
+      displayName: prefs.getString(_authDisplayNameKey) ?? '',
+      accessToken: prefs.getString(_authAccessTokenKey) ?? '',
+      jwtToken: prefs.getString(_authJwtTokenKey) ?? '',
+      isSubmitting: false,
+      clearError: true,
+    );
   }
 
   void markLoginInProgress() {
@@ -76,12 +109,14 @@ class AuthController extends Notifier<AuthState> {
       isSubmitting: false,
       clearError: true,
     );
+    _persistState(state);
 
     Future<void>.delayed(const Duration(milliseconds: 650), () {
       if (state.step != AuthStep.loading || state.jwtToken != jwtToken) {
         return;
       }
       state = state.copyWith(step: AuthStep.authenticated);
+      _persistState(state);
     });
   }
 
@@ -98,6 +133,47 @@ class AuthController extends Notifier<AuthState> {
 
   void logout() {
     state = const AuthState();
+    _clearPersistedState();
+  }
+
+  Future<void> _persistState(AuthState authState) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_authStateStepKey, _encodeStep(authState.step));
+    await prefs.setString(_authPhoneKey, authState.phoneNumber);
+    await prefs.setString(_authDisplayNameKey, authState.displayName);
+    await prefs.setString(_authAccessTokenKey, authState.accessToken);
+    await prefs.setString(_authJwtTokenKey, authState.jwtToken);
+  }
+
+  Future<void> _clearPersistedState() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_authStateStepKey);
+    await prefs.remove(_authPhoneKey);
+    await prefs.remove(_authDisplayNameKey);
+    await prefs.remove(_authAccessTokenKey);
+    await prefs.remove(_authJwtTokenKey);
+  }
+
+  String _encodeStep(AuthStep step) {
+    switch (step) {
+      case AuthStep.unauthenticated:
+        return 'unauthenticated';
+      case AuthStep.loading:
+        return 'loading';
+      case AuthStep.authenticated:
+        return 'authenticated';
+    }
+  }
+
+  AuthStep _decodeStep(String value) {
+    switch (value) {
+      case 'loading':
+        return AuthStep.loading;
+      case 'authenticated':
+        return AuthStep.authenticated;
+      default:
+        return AuthStep.unauthenticated;
+    }
   }
 }
 
