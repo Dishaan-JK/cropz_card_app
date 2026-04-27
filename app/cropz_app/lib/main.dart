@@ -3,9 +3,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phone_email_auth/phone_email_auth.dart';
 
 import 'app/app.dart';
+import 'shared/presentation/providers/theme_mode_provider.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   PhoneEmail.initializeApp(clientId: '18298794129116369409');
-  runApp(const ProviderScope(child: CropzApp()));
+  final persistedThemeMode = await loadPersistedThemeMode();
+
+  runApp(
+    ProviderScope(
+      overrides: [
+        initialThemeModeProvider.overrideWithValue(persistedThemeMode),
+      ],
+      child: const CropzApp(),
+    ),
+  );
 }

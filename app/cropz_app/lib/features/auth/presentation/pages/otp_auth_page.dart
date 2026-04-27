@@ -2,19 +2,110 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:phone_email_auth/phone_email_auth.dart';
 
+import '../../../../shared/core/config/otp_branding_config.dart';
 import '../../../cropz_card/presentation/pages/cropz_card_home_page.dart';
+import '../../data/services/session_guard_event.dart';
 import '../providers/auth_providers.dart';
+import '../providers/session_guard_providers.dart';
 
-class AuthGate extends ConsumerWidget {
+class AuthGate extends ConsumerStatefulWidget {
   const AuthGate({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends ConsumerState<AuthGate> {
+  ProviderSubscription<AsyncValue<SessionGuardEvent>>? _guardSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _guardSub = ref.listenManual<AsyncValue<SessionGuardEvent>>(
+      sessionGuardEventsProvider,
+      (previous, next) {
+        next.whenData((event) async {
+          if (event.type == SessionGuardEventType.revoked ||
+              event.type == SessionGuardEventType.invalid) {
+            await ref.read(sessionGuardServiceProvider).clearLocalSession();
+            ref.read(authControllerProvider.notifier).logout();
+            if (!mounted) {
+              return;
+            }
+            final active = event.activeDevice;
+            final extra = active == null
+                ? ''
+                : ' New active device: ${active.deviceType.toUpperCase()} ${active.deviceModel}.';
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'You were logged out because this account became active on another device.$extra',
+                ),
+              ),
+            );
+          }
+        });
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _guardSub?.close();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final auth = ref.watch(authControllerProvider);
     if (auth.step == AuthStep.authenticated) {
       return const CropzCardHomePage();
     }
+    if (auth.step == AuthStep.loading) {
+      return const _AuthLoadingScreen();
+    }
     return const OtpAuthPage();
+  }
+}
+
+class _AuthLoadingScreen extends StatelessWidget {
+  const _AuthLoadingScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Scaffold(
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              scheme.primary.withValues(alpha: 0.14),
+              scheme.secondary.withValues(alpha: 0.08),
+              Theme.of(context).scaffoldBackgroundColor,
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: const Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: 30,
+                height: 30,
+                child: CircularProgressIndicator(strokeWidth: 2.6),
+              ),
+              SizedBox(height: 14),
+              Text(
+                'Preparing your workspace...',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -85,26 +176,21 @@ class _OtpAuthPageState extends ConsumerState<OtpAuthPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Sign in with Phone.email OTP',
+          'Sign in with OTP',
           style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
         ),
         const SizedBox(height: 8),
         Text(
-          'Secure login with verified mobile number using Phone.email provider.',
+          'Secure login with your verified mobile number.',
           style: TextStyle(color: Colors.blueGrey.shade700),
         ),
-        const SizedBox(height: 16),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF8FAFC),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
-          ),
-          child: const Text(
-            'Tap the button below to open provider OTP verification.',
-            style: TextStyle(fontWeight: FontWeight.w600),
+        const SizedBox(height: 10),
+        Text(
+          'SMS sender (placeholder): ${OtpBrandingConfig.otpSenderId}',
+          style: TextStyle(
+            color: Colors.blueGrey.shade700,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
           ),
         ),
         if (state.errorMessage != null) ...[
@@ -118,19 +204,17 @@ class _OtpAuthPageState extends ConsumerState<OtpAuthPage> {
             child: PhoneLoginButton(
               borderRadius: 16,
               buttonColor: const Color(0xFF0F766E),
-              label: 'Continue with Phone.email',
-              onSuccess: (String accessToken, String jwtToken) {
+              label: 'Continue',
+              onSuccess: (String accessToken, String jwtToken) async {
                 notifier.markLoginInProgress();
                 if (accessToken.isEmpty || jwtToken.isEmpty) {
-                  notifier.setError(
-                    'Provider did not return valid login tokens.',
-                  );
+                  notifier.setError('Authentication token was empty.');
                   return;
                 }
                 PhoneEmail.getUserInfo(
                   accessToken: accessToken,
                   clientId: _phoneEmail.clientId,
-                  onSuccess: (userData) {
+                  onSuccess: (userData) async {
                     final verifiedPhone = userData.phoneNumber ?? '';
                     if (verifiedPhone.isEmpty) {
                       notifier.setError('Verified phone number was empty.');
@@ -143,6 +227,15 @@ class _OtpAuthPageState extends ConsumerState<OtpAuthPage> {
                       firstName: userData.firstName ?? '',
                       lastName: userData.lastName ?? '',
                     );
+                    await ref
+                        .read(localSessionBackendAdapterProvider)
+                        .setCurrentUserId(verifiedPhone);
+
+                    try {
+                      await ref
+                          .read(sessionGuardServiceProvider)
+                          .bootstrapAfterLogin();
+                    } catch (_) {}
                   },
                 );
               },
@@ -197,7 +290,7 @@ class _AuthHero extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Cropz Login',
+                  'Welcome to Cropz Card',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 22,
@@ -206,7 +299,7 @@ class _AuthHero extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Fast, secure OTP verification powered by Phone.email',
+                  'A fast, offline-first card manager for agri-business teams.',
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.9),
                     fontSize: 13,
