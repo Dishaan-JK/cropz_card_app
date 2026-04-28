@@ -18,6 +18,7 @@ class CropzCardSyncService {
   final CropzCardPayloadCodec _payloadCodec;
 
   Future<void> enqueueUpsert({
+    required int localProfileId,
     required String ownerKey,
     required String cardKey,
     required CropzCardDetails details,
@@ -25,6 +26,8 @@ class CropzCardSyncService {
   }) async {
     final now = DateTime.now().millisecondsSinceEpoch;
     final queueItem = CardSyncQueueItem(
+      localProfileId: localProfileId,
+      operation: deleted ? 'delete' : 'upsert',
       ownerKey: ownerKey,
       cardKey: cardKey,
       payloadJson: _payloadCodec.encode(details),
@@ -36,6 +39,7 @@ class CropzCardSyncService {
 
   Future<void> flush({String? authToken}) async {
     final pending = await _localDatasource.pendingQueue();
+    Object? firstError;
     for (final item in pending) {
       final id = item.id;
       if (id == null) {
@@ -52,12 +56,16 @@ class CropzCardSyncService {
         );
         await _localDatasource.markSynced(id);
       } catch (error) {
+        firstError ??= error;
         await _localDatasource.markFailed(
           id: id,
           attempts: item.attempts + 1,
           error: error.toString(),
         );
       }
+    }
+    if (firstError != null) {
+      throw Exception('Card sync flush failed: $firstError');
     }
   }
 }

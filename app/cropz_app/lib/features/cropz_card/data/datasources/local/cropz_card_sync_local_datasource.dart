@@ -10,11 +10,67 @@ class CropzCardSyncLocalDatasource {
 
   Future<void> upsertQueueItem(CardSyncQueueItem item) async {
     final db = await _appDatabase.database;
+    final row = await _buildSafeInsertRow(db, item);
     await db.insert(
       AppDatabase.cardSyncQueueTable,
-      item.toMap(),
+      row,
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
+  }
+
+  Future<Map<String, Object?>> _buildSafeInsertRow(
+    Database db,
+    CardSyncQueueItem item,
+  ) async {
+    final row = item.toMap();
+    row['operation'] = (row['operation'] ?? 'upsert').toString();
+    row['local_profile_id'] = row['local_profile_id'] ?? item.localProfileId;
+
+    final tableInfo = await db.rawQuery(
+      'PRAGMA table_info(${AppDatabase.cardSyncQueueTable})',
+    );
+
+    for (final info in tableInfo) {
+      final name = (info['name'] ?? '').toString();
+      if (name.isEmpty || name == 'id') {
+        continue;
+      }
+      final notNull = (info['notnull'] as num?)?.toInt() == 1;
+      if (!notNull || row.containsKey(name)) {
+        continue;
+      }
+
+      final defaultValue = info['dflt_value'];
+      if (defaultValue != null) {
+        row[name] = _parseSqlDefault(defaultValue.toString());
+        continue;
+      }
+
+      final type = (info['type'] ?? '').toString().toUpperCase();
+      if (type.contains('INT') || type.contains('REAL') || type.contains('NUM')) {
+        row[name] = 0;
+      } else {
+        row[name] = '';
+      }
+    }
+
+    return row;
+  }
+
+  Object _parseSqlDefault(String raw) {
+    var value = raw.trim();
+    if (value.startsWith("'") && value.endsWith("'") && value.length >= 2) {
+      value = value.substring(1, value.length - 1);
+    }
+    final asInt = int.tryParse(value);
+    if (asInt != null) {
+      return asInt;
+    }
+    final asDouble = double.tryParse(value);
+    if (asDouble != null) {
+      return asDouble;
+    }
+    return value;
   }
 
   Future<List<CardSyncQueueItem>> pendingQueue({int limit = 25}) async {

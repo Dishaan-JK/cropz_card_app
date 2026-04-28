@@ -3,7 +3,7 @@ import 'package:sqflite/sqflite.dart';
 
 class AppDatabase {
   static const String _databaseName = 'cropz_local.db';
-  static const int _databaseVersion = 4;
+  static const int _databaseVersion = 6;
 
   static const String profilesTable = 'profiles';
   static const String bankInfoTable = 'bank_info';
@@ -105,6 +105,8 @@ class AppDatabase {
     await db.execute('''
       CREATE TABLE $cardSyncQueueTable (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        local_profile_id INTEGER NOT NULL,
+        operation TEXT NOT NULL DEFAULT 'upsert',
         owner_key TEXT NOT NULL,
         card_key TEXT NOT NULL,
         payload_json TEXT NOT NULL,
@@ -136,6 +138,8 @@ class AppDatabase {
       await db.execute('''
         CREATE TABLE IF NOT EXISTS $cardSyncQueueTable (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
+          local_profile_id INTEGER NOT NULL DEFAULT 0,
+          operation TEXT NOT NULL DEFAULT 'upsert',
           owner_key TEXT NOT NULL,
           card_key TEXT NOT NULL,
           payload_json TEXT NOT NULL,
@@ -148,6 +152,32 @@ class AppDatabase {
       await db.execute(
         'CREATE UNIQUE INDEX IF NOT EXISTS idx_card_sync_unique ON $cardSyncQueueTable(card_key)',
       );
+    }
+
+    if (oldVersion < 5) {
+      final rows = await db.rawQuery('PRAGMA table_info($cardSyncQueueTable)');
+      final columns = rows
+          .map((row) => (row['name'] ?? '').toString())
+          .where((name) => name.isNotEmpty)
+          .toSet();
+      if (!columns.contains('local_profile_id')) {
+        await db.execute(
+          'ALTER TABLE $cardSyncQueueTable ADD COLUMN local_profile_id INTEGER NOT NULL DEFAULT 0',
+        );
+      }
+    }
+
+    if (oldVersion < 6) {
+      final rows = await db.rawQuery('PRAGMA table_info($cardSyncQueueTable)');
+      final columns = rows
+          .map((row) => (row['name'] ?? '').toString())
+          .where((name) => name.isNotEmpty)
+          .toSet();
+      if (!columns.contains('operation')) {
+        await db.execute(
+          "ALTER TABLE $cardSyncQueueTable ADD COLUMN operation TEXT NOT NULL DEFAULT 'upsert'",
+        );
+      }
     }
   }
 
@@ -164,6 +194,8 @@ class AppDatabase {
       await db.execute('''
         CREATE TABLE $cardSyncQueueTable (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
+          local_profile_id INTEGER NOT NULL DEFAULT 0,
+          operation TEXT NOT NULL DEFAULT 'upsert',
           owner_key TEXT NOT NULL,
           card_key TEXT NOT NULL,
           payload_json TEXT NOT NULL,
@@ -218,6 +250,16 @@ class AppDatabase {
     if (!columns.contains('last_error')) {
       await db.execute(
         'ALTER TABLE $cardSyncQueueTable ADD COLUMN last_error TEXT',
+      );
+    }
+    if (!columns.contains('local_profile_id')) {
+      await db.execute(
+        'ALTER TABLE $cardSyncQueueTable ADD COLUMN local_profile_id INTEGER NOT NULL DEFAULT 0',
+      );
+    }
+    if (!columns.contains('operation')) {
+      await db.execute(
+        "ALTER TABLE $cardSyncQueueTable ADD COLUMN operation TEXT NOT NULL DEFAULT 'upsert'",
       );
     }
 

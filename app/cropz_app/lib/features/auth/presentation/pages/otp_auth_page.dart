@@ -5,6 +5,7 @@ import 'package:phone_email_auth/phone_email_auth.dart';
 import '../../../../shared/core/config/otp_branding_config.dart';
 import '../../../cropz_card/presentation/pages/cropz_card_home_page.dart';
 import '../../data/services/session_guard_event.dart';
+import 'user_role_selection_page.dart';
 import '../providers/auth_providers.dart';
 import '../providers/session_guard_providers.dart';
 
@@ -59,7 +60,10 @@ class _AuthGateState extends ConsumerState<AuthGate> {
   Widget build(BuildContext context) {
     final auth = ref.watch(authControllerProvider);
     if (auth.step == AuthStep.authenticated) {
-      return const CropzCardHomePage();
+      if (auth.userType == UserType.dealer) {
+        return const CropzCardHomePage();
+      }
+      return const UserRoleSelectionPage();
     }
     if (auth.step == AuthStep.loading) {
       return const _AuthLoadingScreen();
@@ -117,6 +121,7 @@ class OtpAuthPage extends ConsumerStatefulWidget {
 }
 
 class _OtpAuthPageState extends ConsumerState<OtpAuthPage> {
+  static const String _bypassPhoneNumber = '+91 9952422147';
   final PhoneEmail _phoneEmail = PhoneEmail();
 
   @override
@@ -199,47 +204,75 @@ class _OtpAuthPageState extends ConsumerState<OtpAuthPage> {
         ],
         const SizedBox(height: 16),
         if (!state.isSubmitting)
-          Align(
-            alignment: Alignment.center,
-            child: PhoneLoginButton(
-              borderRadius: 16,
-              buttonColor: const Color(0xFF0F766E),
-              label: 'Continue',
-              onSuccess: (String accessToken, String jwtToken) async {
-                notifier.markLoginInProgress();
-                if (accessToken.isEmpty || jwtToken.isEmpty) {
-                  notifier.setError('Authentication token was empty.');
-                  return;
-                }
-                PhoneEmail.getUserInfo(
-                  accessToken: accessToken,
-                  clientId: _phoneEmail.clientId,
-                  onSuccess: (userData) async {
-                    final verifiedPhone = userData.phoneNumber ?? '';
-                    if (verifiedPhone.isEmpty) {
-                      notifier.setError('Verified phone number was empty.');
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Align(
+                alignment: Alignment.center,
+                child: PhoneLoginButton(
+                  borderRadius: 16,
+                  buttonColor: const Color(0xFF0F766E),
+                  label: 'Continue',
+                  onSuccess: (String accessToken, String jwtToken) async {
+                    notifier.markLoginInProgress();
+                    if (accessToken.isEmpty || jwtToken.isEmpty) {
+                      notifier.setError('Authentication token was empty.');
                       return;
                     }
-                    notifier.completeLogin(
+                    PhoneEmail.getUserInfo(
                       accessToken: accessToken,
-                      jwtToken: jwtToken,
-                      phoneNumber: verifiedPhone,
-                      firstName: userData.firstName ?? '',
-                      lastName: userData.lastName ?? '',
-                    );
-                    await ref
-                        .read(localSessionBackendAdapterProvider)
-                        .setCurrentUserId(verifiedPhone);
+                      clientId: _phoneEmail.clientId,
+                      onSuccess: (userData) async {
+                        final verifiedPhone = userData.phoneNumber ?? '';
+                        if (verifiedPhone.isEmpty) {
+                          notifier.setError('Verified phone number was empty.');
+                          return;
+                        }
+                        notifier.completeLogin(
+                          accessToken: accessToken,
+                          jwtToken: jwtToken,
+                          phoneNumber: verifiedPhone,
+                          firstName: userData.firstName ?? '',
+                          lastName: userData.lastName ?? '',
+                        );
+                        await ref
+                            .read(localSessionBackendAdapterProvider)
+                            .setCurrentUserId(verifiedPhone);
 
-                    try {
-                      await ref
-                          .read(sessionGuardServiceProvider)
-                          .bootstrapAfterLogin();
-                    } catch (_) {}
+                        try {
+                          await ref
+                              .read(sessionGuardServiceProvider)
+                              .bootstrapAfterLogin();
+                        } catch (_) {}
+                      },
+                    );
                   },
-                );
-              },
-            ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextButton(
+                onPressed: () async {
+                  notifier.markLoginInProgress();
+                  final bypassPhone = _normalizePhone(_bypassPhoneNumber);
+                  notifier.completeLogin(
+                    accessToken: 'bypass_access_token',
+                    jwtToken: 'bypass_jwt_token',
+                    phoneNumber: bypassPhone,
+                    firstName: 'Bypass',
+                    lastName: 'User',
+                  );
+                  await ref
+                      .read(localSessionBackendAdapterProvider)
+                      .setCurrentUserId(bypassPhone);
+                  try {
+                    await ref
+                        .read(sessionGuardServiceProvider)
+                        .bootstrapAfterLogin();
+                  } catch (_) {}
+                },
+                child: const Text('Bypass verification for +91 9952422147 only'),
+              ),
+            ],
           )
         else
           const Center(
@@ -254,6 +287,14 @@ class _OtpAuthPageState extends ConsumerState<OtpAuthPage> {
           ),
       ],
     );
+  }
+
+  String _normalizePhone(String value) {
+    final digits = value.replaceAll(RegExp(r'[^0-9+]'), '');
+    if (digits.startsWith('+')) {
+      return digits;
+    }
+    return '+$digits';
   }
 }
 

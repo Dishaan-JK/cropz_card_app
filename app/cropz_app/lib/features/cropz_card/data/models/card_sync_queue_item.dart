@@ -1,6 +1,8 @@
 class CardSyncQueueItem {
   const CardSyncQueueItem({
     this.id,
+    required this.localProfileId,
+    this.operation = 'upsert',
     required this.ownerKey,
     required this.cardKey,
     required this.payloadJson,
@@ -11,6 +13,8 @@ class CardSyncQueueItem {
   });
 
   final int? id;
+  final int localProfileId;
+  final String operation;
   final String ownerKey;
   final String cardKey;
   final String payloadJson;
@@ -21,6 +25,8 @@ class CardSyncQueueItem {
 
   CardSyncQueueItem copyWith({
     int? id,
+    int? localProfileId,
+    String? operation,
     String? ownerKey,
     String? cardKey,
     String? payloadJson,
@@ -31,6 +37,8 @@ class CardSyncQueueItem {
   }) {
     return CardSyncQueueItem(
       id: id ?? this.id,
+      localProfileId: localProfileId ?? this.localProfileId,
+      operation: operation ?? this.operation,
       ownerKey: ownerKey ?? this.ownerKey,
       cardKey: cardKey ?? this.cardKey,
       payloadJson: payloadJson ?? this.payloadJson,
@@ -44,6 +52,8 @@ class CardSyncQueueItem {
   Map<String, Object?> toMap() {
     return <String, Object?>{
       'id': id,
+      'local_profile_id': localProfileId,
+      'operation': operation,
       'owner_key': ownerKey,
       'card_key': cardKey,
       'payload_json': payloadJson,
@@ -57,6 +67,8 @@ class CardSyncQueueItem {
   factory CardSyncQueueItem.fromMap(Map<String, Object?> map) {
     return CardSyncQueueItem(
       id: map['id'] as int?,
+      localProfileId: (map['local_profile_id'] as num?)?.toInt() ?? 0,
+      operation: (map['operation'] ?? 'upsert').toString(),
       ownerKey: (map['owner_key'] ?? '').toString(),
       cardKey: (map['card_key'] ?? '').toString(),
       payloadJson: (map['payload_json'] ?? '{}').toString(),

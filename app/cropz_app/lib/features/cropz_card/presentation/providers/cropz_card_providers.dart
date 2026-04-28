@@ -6,6 +6,7 @@ import '../../data/datasources/local/cropz_card_local_datasource.dart';
 import '../../data/datasources/local/cropz_card_sync_local_datasource.dart';
 import '../../data/datasources/remote/pocketbase_card_remote_datasource.dart';
 import '../../data/repositories/cropz_card_repository_impl.dart';
+import '../../data/services/cropz_card_local_json_export_service.dart';
 import '../../data/services/cropz_card_payload_codec.dart';
 import '../../data/services/cropz_card_sync_service.dart';
 import '../../domain/entities/cropz_card_details.dart';
@@ -46,6 +47,11 @@ final cropzCardRepositoryProvider = Provider<CropzCardRepository>((ref) {
 final cropzCardPayloadCodecProvider = Provider<CropzCardPayloadCodec>((ref) {
   return const CropzCardPayloadCodec();
 });
+
+final cropzCardLocalJsonExportServiceProvider =
+    Provider<CropzCardLocalJsonExportService>((ref) {
+      return const CropzCardLocalJsonExportService();
+    });
 
 final cropzCardSyncLocalDatasourceProvider =
     Provider<CropzCardSyncLocalDatasource>((ref) {
@@ -215,12 +221,43 @@ class CropzCardFormController extends Notifier<CropzCardFormState> {
                 : 'guest');
 
       final sync = ref.read(cropzCardSyncServiceProvider);
+      final payloadCodec = ref.read(cropzCardPayloadCodecProvider);
+      final payloadJson = payloadCodec.encode(normalizedDetails);
+
+      try {
+        final fileStem = 'profile_${normalizedDetails.profile.id ?? savedId}';
+        final exportedPaths = await ref
+            .read(cropzCardLocalJsonExportServiceProvider)
+            .export(fileStem: fileStem, payloadJson: payloadJson);
+        if (exportedPaths.isEmpty) {
+          throw Exception('No local JSON file path was returned.');
+        }
+      } catch (error) {
+        state = state.copyWith(
+          isSaving: false,
+          errorMessage:
+              'Card saved in app, but local JSON export failed: $error',
+        );
+        return false;
+      }
+
       await sync.enqueueUpsert(
+        localProfileId: normalizedDetails.profile.id ?? savedId,
         ownerKey: ownerKey,
         cardKey: cardKey,
         details: normalizedDetails,
       );
-      await sync.flush();
+      try {
+        final authState = ref.read(authControllerProvider);
+        final token = authState.jwtToken.trim();
+        await sync.flush(authToken: token.isEmpty ? null : token);
+      } catch (error) {
+        state = state.copyWith(
+          isSaving: false,
+          errorMessage: 'Card saved in app, but PocketBase sync failed: $error',
+        );
+        return false;
+      }
 
       ref.invalidate(cropzProfilesProvider);
       ref.invalidate(searchableProfilesProvider);
@@ -240,7 +277,7 @@ class CropzCardFormController extends Notifier<CropzCardFormState> {
   ) async {
     final repository = ref.read(cropzCardRepositoryProvider);
     final profiles = await repository.getAllProfiles();
-    final incomingFingerprint = _buildCredentialFingerprint(incomingDetails);
+    final incomingSignature = _buildDuplicateSignature(incomingDetails);
 
     for (final profile in profiles) {
       final profileId = profile.id;
@@ -253,80 +290,76 @@ class CropzCardFormController extends Notifier<CropzCardFormState> {
       }
 
       final existing = await repository.getCardDetailsByProfileId(profileId);
-      final existingFingerprint = _buildCredentialFingerprint(existing);
-      if (existingFingerprint == incomingFingerprint) {
+      final existingSignature = _buildDuplicateSignature(existing);
+      if (incomingSignature == existingSignature) {
         return existing.profile;
       }
     }
     return null;
   }
 
-  String _buildCredentialFingerprint(CropzCardDetails details) {
+  String _buildDuplicateSignature(CropzCardDetails details) {
     final p = details.profile;
-    final profileTokens = <String>[
-      _norm(p.cropzId),
-      _norm(p.email),
-      _norm(p.gstNo),
-      _norm(p.slNo),
-      _norm(p.slExpiryDate),
-      _norm(p.plNo),
-      _norm(p.retailFlNo),
-      _norm(p.retailFlExpiryDate),
-      _norm(p.wsFlNo),
-      _norm(p.wsFlExpiryDate),
-      _norm(p.fmsRetailId),
-      _norm(p.fmsWsId),
-      _norm(p.gstDocument),
-      _norm(p.slDocument),
-      _norm(p.plDocument),
-      _norm(p.flDocument),
-      _norm(p.profilePicture),
-      _norm(p.upiId),
-      _norm(p.qrCode),
-      _norm(p.transport),
+    final parts = <String>[
+      _token('cropz_id', p.cropzId),
+      _token('mobile', p.mobile),
+      _token('whatsapp', p.whatsapp),
+      _token('email', p.email),
+      _token('gst_no', p.gstNo),
+      _token('sl_no', p.slNo),
+      _token('sl_expiry_date', p.slExpiryDate),
+      _token('pl_no', p.plNo),
+      _token('retail_fl_no', p.retailFlNo),
+      _token('retail_fl_expiry_date', p.retailFlExpiryDate),
+      _token('ws_fl_no', p.wsFlNo),
+      _token('ws_fl_expiry_date', p.wsFlExpiryDate),
+      _token('fms_retail_id', p.fmsRetailId),
+      _token('fms_ws_id', p.fmsWsId),
+      _token('upi_id', p.upiId),
+      _token('qr_code', p.qrCode),
+      _token('transport', p.transport),
+      _token('gst_document', p.gstDocument),
+      _token('sl_document', p.slDocument),
+      _token('pl_document', p.plDocument),
+      _token('fl_document', p.flDocument),
+      _token('profile_picture', p.profilePicture),
     ];
 
-    final addressTokens = details.addresses
-        .map(
-          (a) => [
-            _norm(a.cropzId),
-            _norm(a.addressType),
-            _norm(a.address1),
-            _norm(a.address2),
-            _norm(a.address3),
-            _norm(a.city),
-            _norm(a.taluk),
-            _norm(a.block),
-            _norm(a.district),
-            _norm(a.state),
-            _norm(a.pincode),
-            a.inGst == true ? '1' : '0',
-            _norm(a.parentCropzId),
-          ].join('|'),
-        )
-        .toList()
-      ..sort();
+    for (final bank in details.bankInfos) {
+      parts.add(_token('bank_account_no', bank.accountNo));
+      parts.add(_token('bank_account_type', bank.accountType));
+      parts.add(_token('bank_ifsc_code', bank.ifscCode));
+    }
 
-    final bankTokens = details.bankInfos
-        .map(
-          (b) => [
-            _norm(b.accountHolderName),
-            _norm(b.accountNo),
-            _norm(b.accountType),
-            _norm(b.ifscCode),
-          ].join('|'),
-        )
-        .toList()
-      ..sort();
+    for (final address in details.addresses) {
+      parts.add(_token('address_type', address.addressType));
+      parts.add(_token('address1', address.address1));
+      parts.add(_token('address2', address.address2));
+      parts.add(_token('address3', address.address3));
+      parts.add(_token('city', address.city));
+      parts.add(_token('taluk', address.taluk));
+      parts.add(_token('block', address.block));
+      parts.add(_token('district', address.district));
+      parts.add(_token('state', address.state));
+      parts.add(_token('pincode', address.pincode));
+      parts.add(_token('in_gst', address.inGst == true ? '1' : '0'));
+      parts.add(_token('parent_cropz_id', address.parentCropzId));
+    }
 
-    return [
-      profileTokens.join('|'),
-      addressTokens.join('||'),
-      bankTokens.join('||'),
-    ].join('###');
+    final normalized = parts.where((value) => value.isNotEmpty).toList()
+      ..sort();
+    return normalized.join('|');
   }
 
   String _norm(String? value) => (value ?? '').trim().toLowerCase();
+
+  String _token(String key, String? value) {
+    final normalized = _norm(value);
+    if (normalized.isEmpty) {
+      return '';
+    }
+    return '$key=$normalized';
+  }
 }
 
 final cropzCardFormControllerProvider =

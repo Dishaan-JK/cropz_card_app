@@ -1,0 +1,39 @@
+System Role: You are an expert Full-Stack Developer.
+Task: Implement a User Role Selection View immediately following OTP authentication.
+1. Context
+
+    Current State: The application is currently hardcoded for Dealers (Wholesaler/Retailer).
+
+    Objective: Intercept the post-login flow to classify the user type before they reach the main dashboard.
+
+2. Functional Requirements
+
+    Trigger: Execute logic immediately after a successful OTP_VERIFY event.
+
+    UI Component: Create an interactive selection widget (Grid or List of Cards) featuring the following options:
+
+        Dealer (Sub-labels: Wholesaler or Retailer)
+
+        Agri-Specialist
+
+        Company Staff
+
+        Farmer
+
+    Logic:
+
+        If "Dealer" is selected: Persist the role to the user profile/state and navigate to the existing Dealer Dashboard.
+
+        If any other role is selected: Trigger a "Feature Coming Soon" overlay or toast message and prevent further navigation.
+
+3. Technical Constraints
+
+    State Management: Ensure the selected user_type is stored in the global state (e.g., Redux, Context API, or Vuex).
+
+    UI/UX: Use an interactive widget style (hover effects, active states).
+
+    Code Style: Match the existing project's architectural pattern (e.g., functional components, hooks).
+
+4. Output Request
+
+    "Please provide the code for the UserRoleSelection component and the updated routing logic in the AuthNavigation flow to handle this redirection."

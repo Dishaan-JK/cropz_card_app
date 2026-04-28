@@ -6,8 +6,11 @@ import '../../../../../shared/core/config/pocketbase_config.dart';
 class PocketbaseCardRemoteDatasource {
   const PocketbaseCardRemoteDatasource();
 
-  Uri _uri(String path, [Map<String, String>? query]) =>
-      Uri.parse('${PocketbaseConfig.baseUrl}$path').replace(queryParameters: query);
+  Uri _uri(
+    String baseUrl,
+    String path, [
+    Map<String, String>? query,
+  ]) => Uri.parse('$baseUrl$path').replace(queryParameters: query);
 
   Future<void> upsertCard({
     required String ownerKey,
@@ -17,46 +20,76 @@ class PocketbaseCardRemoteDatasource {
     required int updatedAtMs,
     String? authToken,
   }) async {
-    final filter = 'card_key="${_escapeFilter(cardKey)}"';
-    final list = await _requestJson(
-      method: 'GET',
-      uri: _uri(PocketbaseConfig.cardsRecordsPath, <String, String>{
-        'filter': filter,
-        'perPage': '1',
-      }),
-      authToken: authToken,
-    );
+    Object? lastError;
+    for (final baseUrl in _candidateBaseUrls()) {
+      try {
+        final filter = 'card_key="${_escapeFilter(cardKey)}"';
+        final list = await _requestJson(
+          method: 'GET',
+          uri: _uri(baseUrl, PocketbaseConfig.cardsRecordsPath, <String, String>{
+            'filter': filter,
+            'perPage': '1',
+          }),
+          authToken: authToken,
+        );
 
-    final items = (list['items'] as List<dynamic>? ?? const <dynamic>[]);
-    final payload = <String, Object?>{
-      'owner_key': ownerKey,
-      'card_key': cardKey,
-      'payload_json': jsonDecode(payloadJson),
-      'deleted': deleted,
-      'updated_at_ms': updatedAtMs,
-    };
+        final items = (list['items'] as List<dynamic>? ?? const <dynamic>[]);
+        final payload = <String, Object?>{
+          'owner_key': ownerKey,
+          'card_key': cardKey,
+          'payload_json': jsonDecode(payloadJson),
+          'deleted': deleted,
+          'updated_at_ms': updatedAtMs,
+        };
 
-    if (items.isEmpty) {
-      await _requestJson(
-        method: 'POST',
-        uri: _uri(PocketbaseConfig.cardsRecordsPath),
-        body: payload,
-        authToken: authToken,
-      );
-      return;
+        if (items.isEmpty) {
+          await _requestJson(
+            method: 'POST',
+            uri: _uri(baseUrl, PocketbaseConfig.cardsRecordsPath),
+            body: payload,
+            authToken: authToken,
+          );
+          return;
+        }
+
+        final first = items.first;
+        final id = first is Map<String, dynamic>
+            ? (first['id'] ?? '').toString()
+            : '';
+        if (id.isEmpty) {
+          throw const FormatException('PocketBase cards record id is missing.');
+        }
+        await _requestJson(
+          method: 'PATCH',
+          uri: _uri(baseUrl, '${PocketbaseConfig.cardsRecordsPath}/$id'),
+          body: payload,
+          authToken: authToken,
+        );
+        return;
+      } catch (error) {
+        lastError = error;
+      }
     }
 
-    final first = items.first;
-    final id = first is Map<String, dynamic> ? (first['id'] ?? '').toString() : '';
-    if (id.isEmpty) {
-      throw const FormatException('PocketBase cards record id is missing.');
-    }
-    await _requestJson(
-      method: 'PATCH',
-      uri: _uri('${PocketbaseConfig.cardsRecordsPath}/$id'),
-      body: payload,
-      authToken: authToken,
+    throw Exception(
+      'PocketBase sync failed on all candidate endpoints: $lastError',
     );
+  }
+
+  List<String> _candidateBaseUrls() {
+    final configured = PocketbaseConfig.baseUrl.trim();
+    if (configured.isEmpty) {
+      return const [];
+    }
+    final out = <String>[configured];
+    final uri = Uri.tryParse(configured);
+    if (uri != null &&
+        (uri.host == '127.0.0.1' || uri.host == 'localhost') &&
+        (Platform.isAndroid)) {
+      out.add(configured.replaceFirst(uri.host, '10.0.2.2'));
+      out.add(configured.replaceFirst(uri.host, '10.0.3.2'));
+    }
+    return out.toSet().toList(growable: false);
   }
 
   String _escapeFilter(String value) => value.replaceAll('"', r'\"');

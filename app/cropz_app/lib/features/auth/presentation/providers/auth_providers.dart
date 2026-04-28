@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 enum AuthStep { unauthenticated, loading, authenticated }
+enum UserType { dealer, agriSpecialist, companyStaff, farmer }
 
 class AuthState {
   const AuthState({
@@ -10,6 +11,7 @@ class AuthState {
     this.displayName = '',
     this.accessToken = '',
     this.jwtToken = '',
+    this.userType,
     this.errorMessage,
     this.isSubmitting = false,
   });
@@ -19,6 +21,7 @@ class AuthState {
   final String displayName;
   final String accessToken;
   final String jwtToken;
+  final UserType? userType;
   final String? errorMessage;
   final bool isSubmitting;
 
@@ -30,9 +33,11 @@ class AuthState {
     String? displayName,
     String? accessToken,
     String? jwtToken,
+    UserType? userType,
     String? errorMessage,
     bool? isSubmitting,
     bool clearError = false,
+    bool clearUserType = false,
   }) {
     return AuthState(
       step: step ?? this.step,
@@ -40,6 +45,7 @@ class AuthState {
       displayName: displayName ?? this.displayName,
       accessToken: accessToken ?? this.accessToken,
       jwtToken: jwtToken ?? this.jwtToken,
+      userType: clearUserType ? null : userType ?? this.userType,
       errorMessage: clearError ? null : errorMessage ?? this.errorMessage,
       isSubmitting: isSubmitting ?? this.isSubmitting,
     );
@@ -52,6 +58,7 @@ class AuthController extends Notifier<AuthState> {
   static const String _authDisplayNameKey = 'auth_display_name';
   static const String _authAccessTokenKey = 'auth_access_token';
   static const String _authJwtTokenKey = 'auth_jwt_token';
+  static const String _authUserTypeKey = 'auth_user_type';
 
   bool _isHydrationStarted = false;
 
@@ -79,6 +86,7 @@ class AuthController extends Notifier<AuthState> {
       displayName: prefs.getString(_authDisplayNameKey) ?? '',
       accessToken: prefs.getString(_authAccessTokenKey) ?? '',
       jwtToken: prefs.getString(_authJwtTokenKey) ?? '',
+      userType: _decodeUserType(prefs.getString(_authUserTypeKey)),
       isSubmitting: false,
       clearError: true,
     );
@@ -107,6 +115,7 @@ class AuthController extends Notifier<AuthState> {
       phoneNumber: phoneNumber,
       displayName: fullName,
       isSubmitting: false,
+      clearUserType: true,
       clearError: true,
     );
     _persistState(state);
@@ -136,6 +145,11 @@ class AuthController extends Notifier<AuthState> {
     _clearPersistedState();
   }
 
+  Future<void> setUserType(UserType userType) async {
+    state = state.copyWith(userType: userType);
+    await _persistState(state);
+  }
+
   Future<void> _persistState(AuthState authState) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_authStateStepKey, _encodeStep(authState.step));
@@ -143,6 +157,10 @@ class AuthController extends Notifier<AuthState> {
     await prefs.setString(_authDisplayNameKey, authState.displayName);
     await prefs.setString(_authAccessTokenKey, authState.accessToken);
     await prefs.setString(_authJwtTokenKey, authState.jwtToken);
+    await prefs.setString(
+      _authUserTypeKey,
+      authState.userType == null ? '' : _encodeUserType(authState.userType!),
+    );
   }
 
   Future<void> _clearPersistedState() async {
@@ -152,6 +170,7 @@ class AuthController extends Notifier<AuthState> {
     await prefs.remove(_authDisplayNameKey);
     await prefs.remove(_authAccessTokenKey);
     await prefs.remove(_authJwtTokenKey);
+    await prefs.remove(_authUserTypeKey);
   }
 
   String _encodeStep(AuthStep step) {
@@ -173,6 +192,34 @@ class AuthController extends Notifier<AuthState> {
         return AuthStep.authenticated;
       default:
         return AuthStep.unauthenticated;
+    }
+  }
+
+  String _encodeUserType(UserType userType) {
+    switch (userType) {
+      case UserType.dealer:
+        return 'dealer';
+      case UserType.agriSpecialist:
+        return 'agri_specialist';
+      case UserType.companyStaff:
+        return 'company_staff';
+      case UserType.farmer:
+        return 'farmer';
+    }
+  }
+
+  UserType? _decodeUserType(String? rawValue) {
+    switch (rawValue) {
+      case 'dealer':
+        return UserType.dealer;
+      case 'agri_specialist':
+        return UserType.agriSpecialist;
+      case 'company_staff':
+        return UserType.companyStaff;
+      case 'farmer':
+        return UserType.farmer;
+      default:
+        return null;
     }
   }
 }

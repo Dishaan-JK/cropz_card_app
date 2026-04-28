@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="NONE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="881367e0-69f3-407c-ac03-e9b09a21522c" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.github/workflows/main.yml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/.gitignore" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/AndroidProjectSystem.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/caches/deviceStreaming.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/caches/deviceStreaming.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/cropz_card_app.iml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/libraries/Dart_Packages.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/libraries/Dart_SDK.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/runConfigurations.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Feature_1 fix and updates.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Feature_fix_2.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Feature_update_1 prompt.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/Pincodeto_Village_Mapping_2026-02-26.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/company_list.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/cropz_app/lib/features/auth/presentation/pages/otp_auth_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/app/cropz_app/lib/features/auth/presentation/pages/otp_auth_page.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/cropz_app/lib/features/auth/presentation/providers/auth_providers.dart" beforeDir="false" afterPath="$PROJECT_DIR$/app/cropz_app/lib/features/auth/presentation/providers/auth_providers.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/cropz_app/lib/features/cropz_card/data/datasources/local/cropz_card_sync_local_datasource.dart" beforeDir="false" afterPath="$PROJECT_DIR$/app/cropz_app/lib/features/cropz_card/data/datasources/local/cropz_card_sync_local_datasource.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/cropz_app/lib/features/cropz_card/data/datasources/remote/pocketbase_card_remote_datasource.dart" beforeDir="false" afterPath="$PROJECT_DIR$/app/cropz_app/lib/features/cropz_card/data/datasources/remote/pocketbase_card_remote_datasource.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/cropz_app/lib/features/cropz_card/data/models/card_sync_queue_item.dart" beforeDir="false" afterPath="$PROJECT_DIR$/app/cropz_app/lib/features/cropz_card/data/models/card_sync_queue_item.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/cropz_app/lib/features/cropz_card/data/services/cropz_card_sync_service.dart" beforeDir="false" afterPath="$PROJECT_DIR$/app/cropz_app/lib/features/cropz_card/data/services/cropz_card_sync_service.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/cropz_app/lib/features/cropz_card/presentation/providers/cropz_card_providers.dart" beforeDir="false" afterPath="$PROJECT_DIR$/app/cropz_app/lib/features/cropz_card/presentation/providers/cropz_card_providers.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/cropz_app/lib/shared/data/local/database/app_database.dart" beforeDir="false" afterPath="$PROJECT_DIR$/app/cropz_app/lib/shared/data/local/database/app_database.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/cropzcard_prd.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/data_model.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend integration prompt.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dms_setup prompt.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/seq_coms.bat" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/supabase/migrations/20260402_01_init_cropz_schema.sql" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/supabase_imcp.txt" beforeDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="ClangdSettings">
+    <option name="formatViaClangd" value="false" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;customColor&quot;: &quot;&quot;,
+  &quot;associatedIndex&quot;: 3
+}</component>
+  <component name="ProjectId" id="3CwGF75LOeX0p9fbRoygk8W6bpT" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.cidr.known.project.marker": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.readMode.enableVisualFormatting": "true",
+    "cf.first.check.clang-format": "false",
+    "cidr.known.project.marker": "true",
+    "dart.analysis.tool.window.visible": "false",
+    "git-widget-placeholder": "gps__back-end",
+    "kotlin-language-version-configured": "true",
+    "settings.editor.selected.configurable": "Errors",
+    "settings.editor.splitter.proportion": "0.26680243",
+    "show.migrate.to.gradle.popup": "false"
+  }
+}]]></component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="881367e0-69f3-407c-ac03-e9b09a21522c" name="Changes" comment="" />
+      <created>1777289113802</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1777289113802</updated>
+    </task>
+    <servers />
+  </component>
+</project>
